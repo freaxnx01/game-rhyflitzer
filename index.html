@@ -1040,7 +1040,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
-import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
@@ -5287,7 +5287,8 @@ function stepNavi(dt) {
   NAVIS.route = r; NAVIS.replans++; afterReplan(NAVIS.st); toast(tr('naviReroute'), TOAST_S.event);
 }
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
-function toggleFly() { if (WRECK_S.on) return; if (FLY.on) land(); else takeOff(); }
+const raceBlocksSwitch = () => { if (!raceLocksSwitch(NET.race)) return false; toast(tr('mpNoSwitch')); return true; };   // #1115: no heli, loco or walking in a network race
+function toggleFly() { if (WRECK_S.on) return; if (FLY.on) land(); else if (!raceBlocksSwitch()) takeOff(); }
 const currentRoom = () => ROOM.layouts && ROOM.layouts[roomIndex(LEVELS.id)];
 const belowRoof = () => isRingLevel(LEVELS.id) || LEVELS.ceilingAt(P.x, P.z) !== null;   // #361: the ring, its spokes and a room's portal tunnel have no sky
 const flyZone = () => LIFT_RIDE.busy ? 'lift' : LEVELS.isSurface() ? (roofedAt(P.x, P.z) ? 'roofed' : 'open') : belowRoof() ? 'tunnel' : 'room';
@@ -5470,7 +5471,7 @@ function stepEnter() {
     else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; } }
 }
 function pressZ() { if (RIDE.s.phase !== 'idle') return;   // #516: Z does nothing while the wheel carries the walker
-  if (TRAIN.on) leaveTrain(); else if (FOOT.on) { if (nearLoco()) boardTrain(); else getIn(); } else getOut(); }
+  if (TRAIN.on) leaveTrain(); else if (FOOT.on) { if (nearLoco()) boardTrain(); else getIn(); } else if (!raceBlocksSwitch()) getOut(); }
 // #462: the loco wins over the car only when it is in reach and nearer than the car
 function nearLoco() { if (!TRAIN.mesh) return false; const d = carReach(P.x, P.z, locoBox()); return d <= WALKER.enterReach && d < carReach(P.x, P.z, parked()); }
 function boardTrain() { TRAIN.car = FOOT.car; FOOT.on = false; if (document.pointerLockElement) document.exitPointerLock(); TRAIN.on = true; TRAIN.cam = 'chase'; syncTrainP(); toast(tr('trainIn')); }

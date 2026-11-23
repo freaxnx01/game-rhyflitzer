@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-23 11:26` Im **Mehrspieler-Rennen** bleiben **Helikopter**, **Lok** und **zu Fuss** gesperrt: Von der Startaufstellung bis zum Rennende zeigt <kbd>F</kbd> oder <kbd>Z</kbd> nur noch "Im Rennen nicht möglich". Beim gemeinsamen Herumfahren geht weiterhin alles.
 - `2026-11-23 11:02` **Felbi** steht jetzt unter **Über Rhyflitzer → Leute**, als **Hinweisgeber** für Brücken und Unterführungen, die nicht der Wirklichkeit entsprachen.
 - `2026-11-22 21:59` In **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) stehen in **Sisseln** wieder die Häuser, die es heute nicht mehr gibt: nachgezeichnet nach dem Luftbild von 1946 und der **Siegfriedkarte**.
 - `2026-11-20 23:46` Im **Mehrspieler** drehen sich jetzt die **Räder** am Auto des anderen Spielers: Sie rollen, beim Rückwärtsfahren rückwärts, und die Vorderräder lenken mit.
