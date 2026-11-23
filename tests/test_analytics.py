@@ -81,7 +81,7 @@ def test_a_blocked_umami_never_breaks_the_game(server):
 
 @needs_world
 def test_a_ring_and_room_visit_is_counted_once_each(server):
-    """#1171: down the lift to ring 1 and into a spoke's room, out and in again: one hideout-ring and one hideout-room."""
+    """#1171: down the lift to ring 1 and into the Eiffel room: one hideout-ring and one hideout-room (repeats: node tests)."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server, real_world=True)
         page.click("#startbtn", timeout=180000)
