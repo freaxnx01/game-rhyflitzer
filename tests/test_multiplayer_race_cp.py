@@ -3,7 +3,7 @@ recent poses and broadcasts a board; every device shows its position and gap. A 
 refuses (a far-away claim) gets `cpno` and the checkpoint opens again on that device.
 
 Reuses the lobby handshake and the cruise pair fixture: the only new surfaces are the board,
-the #netpos line and the cpno reopen.
+the #netpos line and the cpno reopen (#1119 adds the #netopp opponent list).
 
 Slow (Playwright, two heavy pages): run in the foreground."""
 from test_multiplayer_cruise import pair_fixture, ready_both  # noqa: F401  (fixture)
@@ -40,6 +40,10 @@ def test_guest_pass_counts_on_host_and_far_claim_is_refused(pair):
             "() => (window.__mm.netRace().board || []).some(r => r.id === 1 && r.times.length === 1)", timeout=T)
     # 1st of 2 on the guest, who has one pass and the host none
     assert guest.evaluate("() => window.__mm.netRace().pos").startswith(("P 1/2", "Platz 1/2"))
+    # #1119: each page's opponent list shows the other car's passes / checkpoint count
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.netRace().opp.includes('/' + window.__mm.netRace().cps.length)", timeout=T)
     guest.evaluate("() => window.__mm.netSend(0, { type: 'cp', i: 1, t: 1000 })")   # far from checkpoint 1
     guest.wait_for_function("() => window.__mm.netRace().cpno === 1", timeout=T)
     assert host.evaluate("() => window.__mm.netRace().board.find(r => r.id === 1).times.length") == 1
