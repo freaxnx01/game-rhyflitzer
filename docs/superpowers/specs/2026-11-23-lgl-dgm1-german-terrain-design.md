@@ -153,13 +153,13 @@ Found by scanning every coordinate pair in `tests/` and `pipeline/tests/` agains
 
 ## Assumptions
 
-- **A1** [med] Overlay the shipped `.mmh` (fill only exact `0.0` cells) instead of a full rebuild with `--dgm-dir`.
+- **A1** [confirmed] Overlay the shipped `.mmh` (fill only exact `0.0` cells) instead of a full rebuild with `--dgm-dir`.
   Rejected: a full rebuild as the issue text says. `swiss_tiles` keeps the newest survey per tile
   (`pipeline/terrain.py:72-80`), so a rebuild can move Swiss heights and every Swiss golden; the overlay gives the same
-  German side and keeps Swiss bits fixed. The full-build path gets the same merge rule (D1).
-- **A2** [med] Shift DGM1 by the median overlap offset (~+0.3 m), recorded as `dgmShift`. Rejected: no shift (a 0.3 m
+  German side and keeps Swiss bits fixed. The full-build path gets the same merge rule (D1). Confirmed 2026-11-23: "Overlay the flat cells"
+- **A2** [confirmed] Shift DGM1 by the median overlap offset (~+0.3 m), recorded as `dgmShift`. Rejected: no shift (a 0.3 m
   ledge along the seam) and a formal LN02/LHN95-NHN transformation (needs REFRAME, too fine for an 8 m grid).
-  Evidence: measured -0.29 .. -0.32 m on flat dry overlap (table above).
+  Evidence: measured -0.29 .. -0.32 m on flat dry overlap (table above). Confirmed 2026-11-23: "Shift by measured median"
 - **A3** [med] The two German #1044 road-under-bridge sites (w25976772, w28810416) become eligible under #1044's
   existing rule "real terrain only" (`world.js:221-231`, spec `2026-11-17-road-bridge-underpass-design.md` lines
   47-53, 99-100): each gets a cut or is dropped as capped, whatever the new data gives; the implementer measures and
