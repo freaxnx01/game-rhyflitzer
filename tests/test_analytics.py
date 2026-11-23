@@ -3,6 +3,7 @@ tests never reach the real Umami. Hand-traced layout (world and terrain blocked)
 from playwright.sync_api import sync_playwright
 
 from test_carselect import SETTLED
+from test_hideout import into_room, needs_world, ride
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
@@ -10,7 +11,7 @@ STUB = ("window.__umami = []; window.umami = { track: (a, b) => { window.__umami
         "? { pageview: a({ website: 'w', url: location.pathname + location.search, title: 'T' }) } : { name: a, data: b }); } };")
 
 
-def boot(p, server, query=""):
+def boot(p, server, query="", real_world=False):
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US")
     ctx.add_init_script(STUB)
@@ -18,8 +19,9 @@ def boot(p, server, query=""):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/stats.freaxnx01.ch/**", lambda r: r.fulfill(status=200, content_type="text/javascript", body=""))
-    page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
-    page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+    if not real_world:   # #1171: the Hübel is swisstopo's hill, so its test needs the real world
+        page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html{query}")
     page.wait_for_function(READY, timeout=240000)
     return b, page, errors
@@ -75,3 +77,19 @@ def test_a_blocked_umami_never_breaks_the_game(server):
         page.wait_for_function(READY, timeout=240000)
         page.click("#startbtn"); page.wait_for_timeout(500); b.close()
     assert not errors
+
+
+@needs_world
+def test_a_ring_and_room_visit_is_counted_once_each(server):
+    """#1171: down the lift to ring 1 and into a spoke's room, out and in again: one hideout-ring and one hideout-room."""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, real_world=True)
+        page.click("#startbtn", timeout=180000)
+        h = page.evaluate("() => window.__mm.hideout()")
+        ride(page, h, "ring"); into_room(page, 0, "eiffel")
+        page.wait_for_function("() => window.__umami.some((c) => c.name === 'hideout-room')", timeout=30000)
+        page.wait_for_timeout(3000)
+        rings, rooms = named(page, "hideout-ring"), named(page, "hideout-room"); b.close()
+    assert not errors
+    assert rings == [{"ring": 1}]
+    assert len(rooms) == 1 and rooms[0]["ring"] == 1 and rooms[0]["room"]
