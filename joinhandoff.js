@@ -28,7 +28,7 @@ export function offerJoin(code, { open, wait = WAIT_MS, id = randomId() } = {}) 
     const timer = setTimeout(() => finish(false), wait);
     ch.addEventListener('message', (ev) => {
       const msg = parseHandoff(ev.data);
-      if (!msg || msg.type !== 'ready' || msg.nonce !== nonce) return;   // the first tab to say ready gets the code
+      if (!msg || msg.type !== 'ready' || msg.nonce !== nonce || done) return;   // the first tab to say ready gets the code; a late ready, after the wait closed the channel, finds nothing to answer
       ch.postMessage({ type: 'go', nonce, to: msg.from, code });
       finish(true);
     });
