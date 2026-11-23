@@ -1497,6 +1497,19 @@ test('ribbonLift lifts a twisted quad whose drawn diagonal runs under the ground
   assert.ok(up[0] >= 0.5 - 1e-9 && up[1] >= 0.5 - 1e-9, `up ${[...up]}`);
 });
 
+test('ribbonLift hands hAt the station along the quad, from dist', () => {
+  const seen = []; ribbonLift(QL, QR, [0, 0], [0, 0], (p, t) => { seen.push([p[0], t]); return 0; }, 0.5, 1, [10, 14]);
+  assert.ok(seen.length > 0);
+  for (const [x, t] of seen) assert.ok(Math.abs(t - (10 + x)) < 1e-9, `x ${x} station ${t}`);
+});
+
+test('ribbonLift with stations lifts the same as the nearest-point search on a straight road', () => {
+  const pts = [[0, 0], [4, 0]], ridge = ([x, z]) => Math.max(0, 0.1 - Math.abs(z - 1) * 0.2) + 0.01 * x;
+  const byNearest = (p) => ridge(p), byStation = (p, t) => { assert.ok(t >= 0 && t <= 4 + 1e-9); return ridge([t, p[1]]); };
+  assert.deepEqual([...ribbonLift(QL, QR, [0, 0], [0, 0], byStation, 0.5, 1, [0, 4])], [...ribbonLift(QL, QR, [0, 0], [0, 0], byNearest)]);
+  assert.equal(nearestOnPolyline(pts, 2.5, 1).t, 2.5);
+});
+
 test('ribbonLift leaves a strip on a plane alone', () => {
   const plane = ([x, z]) => 0.1 * x + 0.05 * z;
   const up = ribbonLift(QL, QR, [plane(QL[0]), plane(QL[1])], [plane(QR[0]), plane(QR[1])], plane);

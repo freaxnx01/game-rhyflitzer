@@ -1159,11 +1159,12 @@ export function trisHeightAt(tris, x, z) {
 // `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
 // four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
 // The triangle pair and the point handed to hAt are two scratch buffers reused for every sample, so sampling allocates
-// nothing. The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
+// nothing. dist (the strip's arc length at each edge pair) gives hAt the station of a probe, so it needn't search for it.
+// The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
 // quad the drawn triangles lie in that same plane and the lattice finds nothing anywhere, so six points inside the quad go
 // first and the lattice only runs where they show the ground bending over the strip at all (PROBE, 0.1 mm).
 const PROBE = 1e-4;
-export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
+export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1, dist = null) {
   const n = left.length, up = new Float64Array(n), tris = new Float64Array(18), at = [0, 0];
   for (let i = 0; i < n - 1; i++) {
     const axl = left[i][0], azl = left[i][1], axr = right[i][0], azr = right[i][1], dxl = left[i + 1][0], dzl = left[i + 1][1], cxr = right[i + 1][0], czr = right[i + 1][1];
@@ -1177,7 +1178,7 @@ export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
         const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
         at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
         const drawn = trisHeightAt(tris, at[0], at[1]);
-        if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
+        if (drawn !== -Infinity) e = Math.max(e, hAt(at, dist ? dist[i] + (dist[i + 1] - dist[i]) * v : undefined) - drawn);
       }
       return e;
     };

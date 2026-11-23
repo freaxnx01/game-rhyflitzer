@@ -1916,7 +1916,7 @@ function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // 
   // edge heights; on terrain, #290: lift both ends of a quad by the most the ground rises over its drawn triangles anywhere
   // across and along it (a fold between the edges, or the quad's own twist), so the strip stays on top
   const hl = left.map((p, i) => hAt(p, dist[i])), hr = right.map((p, i) => hAt(p, dist[i]));
-  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
+  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt, 0.5, 1, dist); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
   const pos = [], uv = [], nrm = []; for (let i = 0; i < L - 1; i++) { const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } const v0 = dist[i] / tileLen, v1 = dist[i + 1] / tileLen; uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.surf = { pts, hw, hl, hr }; return g;
 }
