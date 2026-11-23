@@ -151,3 +151,6 @@ export function standings(rows) {
 
 // boardRows(race) — the rows of a `board` message: id, name, times, st (mask is host-internal and dropped).
 export function boardRows(race) { return race.racers.map(({ id, name, times, st }) => ({ id, name, times, st })); }
+
+// #1115: while a network race runs (countdown included, until the board says over) taking off, walking and the loco are locked
+export function raceLocksSwitch(race) { return !!race && !race.over; }

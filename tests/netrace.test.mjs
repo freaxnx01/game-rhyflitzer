@@ -1,7 +1,7 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint, raceLocksSwitch } from '../netrace.js';
 import { CP_MAX } from '../netcodec.js';
 
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
@@ -133,4 +133,17 @@ test('acceptFinish_succeedsAtClampedCps', () => {
   const fin = acceptFinish(r, 0, 90000, true, 100000);
   assert.equal(fin.ok, true);
   assert.equal(fin.race.racers[0].st, 'fin');
+});
+
+test('raceLocksSwitch_noRace_false', () => {
+  assert.equal(raceLocksSwitch(null), false);
+});
+
+test('raceLocksSwitch_runningRace_true', () => {
+  assert.equal(raceLocksSwitch({ go: false, over: false }), true);   // the countdown counts
+  assert.equal(raceLocksSwitch({ go: true }), true);                 // over not set yet
+});
+
+test('raceLocksSwitch_raceOver_false', () => {
+  assert.equal(raceLocksSwitch({ go: true, over: true }), false);
 });
