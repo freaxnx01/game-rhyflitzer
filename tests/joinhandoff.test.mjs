@@ -63,3 +63,18 @@ test('listenForJoin_tabTurnedBusyBeforeTheGo_takesNoCode', async () => {
   assert.equal(await offerJoin('X', { open, wait: 50, id: 'N' }), true);   // the offering tab saw a ready, it cannot know
   assert.deepEqual(got, []);   // but this one does not take a code it can no longer take
 });
+test('offerJoin_twoConcurrentOffersToOneTab_onlyOneIsTold', async () => {
+  const open = makeBus(); const got = [];
+  listenForJoin({ open, canAccept: () => true, onJoin: (c) => got.push(c), id: 'A' });
+  const both = await Promise.all([offerJoin('X', { open, wait: 50, id: 'N1' }), offerJoin('Y', { open, wait: 50, id: 'N2' })]);   // two links inside one handoff window
+  assert.deepEqual(both.filter(Boolean).length, 1);   // the other tab joins itself instead of a false "joined in your other tab"
+  assert.equal(got.length, 1);
+});
+test('listenForJoin_goNeverCame_answersAgainLater', async () => {
+  const open = makeBus(); const got = [];
+  listenForJoin({ open, canAccept: () => true, onJoin: (c) => got.push(c), id: 'A', hold: 30 });
+  const ch = open(); ch.postMessage({ type: 'offer', nonce: 'lost', from: 'Z' });   // an offering tab that died before its go
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(await offerJoin('X', { open, wait: 50, id: 'N' }), true);
+  assert.deepEqual(got, ['X']);
+});

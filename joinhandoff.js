@@ -37,22 +37,25 @@ export function offerJoin(code, { open, wait = WAIT_MS, id = randomId() } = {}) 
   });
 }
 
-// listenForJoin({open, canAccept, onJoin, id}) — a close function; the open tab answers offers and, on go, gets the code
-export function listenForJoin({ open, canAccept = () => true, onJoin, id = randomId() } = {}) {
+// listenForJoin({open, canAccept, onJoin, id, hold}) — a close function; the open tab answers offers and, on go, gets the code
+export function listenForJoin({ open, canAccept = () => true, onJoin, id = randomId(), hold = WAIT_MS * 2 } = {}) {
   let ch = null;
   try { ch = open && open(); } catch (e) { ch = null; }
   if (!ch || typeof onJoin !== 'function') return () => {};
-  const seen = new Set();
+  let pending = null, expiry = null;   // one handoff at a time: a second offer inside the window gets no ready and joins in its own tab
+  const release = () => { clearTimeout(expiry); pending = null; };
   ch.addEventListener('message', (ev) => {
     const msg = parseHandoff(ev.data);
     if (!msg) return;
     if (msg.type === 'offer') {
-      if (msg.from === id || !canAccept()) return;   // own tab, or busy: hosting, a guest, or a generated region never answers
-      seen.add(msg.nonce);
+      if (msg.from === id || pending || !canAccept()) return;   // own tab, a handoff already open, or busy: hosting, a guest, or a generated region never answers
+      pending = msg.nonce;
+      expiry = setTimeout(release, hold);   // the offering tab may close before its go: do not stay deaf
       ch.postMessage({ type: 'ready', nonce: msg.nonce, from: id });
     } else if (msg.type === 'go') {
-      if (msg.to !== id || !seen.has(msg.nonce) || !canAccept()) return;   // only the go naming this tab, for a nonce it offered to take, and only while it still can: the tab may have turned busy inside the handoff window -- hosting, a guest, or a generated region
-      seen.delete(msg.nonce);   // one go, one onJoin, even if the message shows up twice
+      if (msg.to !== id || msg.nonce !== pending) return;
+      release();
+      if (!canAccept()) return;   // only the go naming this tab, for a nonce it offered to take, and only while it still can: the tab may have turned busy inside the handoff window -- hosting, a guest, or a generated region
       onJoin(msg.code);
     }
   });
