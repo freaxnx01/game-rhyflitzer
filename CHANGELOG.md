@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-11-23 16:35` Ein angeklickter **Einladungslink** tritt jetzt im schon offenen **Tab** bei; der neue Tab sagt nur «Im anderen Tab beigetreten».
+
 ### Added
 
 - `2026-11-23 14:54` Im **Mehrspieler** wechselt der Gastgeber den **Spielmodus**, ohne dass jemand neu verbinden muss: Pause → **Modus wechseln (Lobby)** bringt alle in die Lobby, dort startet er **Gemeinsam losfahren** oder **Rennen starten**.
