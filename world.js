@@ -131,14 +131,17 @@ function splitKept(r) {
   if (!keep1952) return [r];
   const total = polylineLength(r.pts), pieces = [];
   let from = 0;
-  const add = (a, b, modern) => { if (b - a >= MIN_PIECE) pieces.push(modern ? { ...rest, pts: polylineSlice(r.pts, a, b), modern: true } : { ...rest, pts: polylineSlice(r.pts, a, b) }); };
+  // #1152: a piece keeps the whole road's profile and reads it from its own start on (zpFrom)
+  const prof = (a) => (r.zp ? { zpFrom: a, zpLen: total } : {});
+  const add = (a, b, modern) => { if (b - a >= MIN_PIECE) pieces.push(modern ? { ...rest, pts: polylineSlice(r.pts, a, b), ...prof(a), modern: true } : { ...rest, pts: polylineSlice(r.pts, a, b), ...prof(a) }); };
   for (const [a, b] of keep1952) { add(from, a, true); add(a, b, false); from = b; }
   add(from, total, true);
   return pieces;
 }
 
 export function layoutFromWorld(w) {
-  const roads = w.roads.flatMap(splitKept).map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
+  const roads = w.roads.flatMap(splitKept).map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road',
+                                                        ...(r.zp && r.zpLen === undefined ? { zpFrom: 0, zpLen: polylineLength(r.pts) } : {}) }));   // #1152
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
            rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], eraFields: w.era?.fields || [], eraHouses: w.era?.houses || [], busRoutes: w.busRoutes || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
@@ -522,6 +525,57 @@ export function cellHeights(i, j, G, n, h) {
 }
 
 export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v); }
+// height inside an n x n patch (row-major (n + 1)^2 heights) at cell fractions u, v, with the ground mesh's own split
+export function patchH(p, n, u, v) {
+  const sx = u * n, sz = v * n, a = Math.min(Math.floor(sx), n - 1), b = Math.min(Math.floor(sz), n - 1), W = n + 1;
+  return triLerp(p[b * W + a], p[(b + 1) * W + a], p[(b + 1) * W + a + 1], p[b * W + a + 1], sx - a, sz - b);
+}
+
+// #1152: a road's smooth height profile (zp, pipeline/road_profiles.py): heights every PROFILE_STEP m along the road, the
+// last at its full length; a 1952 piece reads it from zpFrom on (splitKept), so zpLen is always the whole road's length
+export const PROFILE_STEP = 4;
+export function profileAt(zp, len, t) {
+  const n = zp.length; if (n === 1 || t <= 0) return zp[0]; if (t >= len) return zp[n - 1];
+  const k = Math.min(Math.floor(t / PROFILE_STEP), n - 2), s0 = k * PROFILE_STEP, s1 = k === n - 2 ? len : s0 + PROFILE_STEP;
+  return zp[k] + (zp[k + 1] - zp[k]) * (t - s0) / ((s1 - s0) || 1);
+}
+export function roadProfileH(r, t) { return profileAt(r.zp, r.zpLen, (r.zpFrom || 0) + t); }
+// #1152: the terrain beside a profiled road is fitted to it, #42's grade cut generalised to cut and fill: flat at the
+// profile within hw + margin (margin = one patch sub-cell diagonal + 0.5, so no drawn triangle reaching the carriageway
+// rises over it), then a 1:bank bank back to the mesh, the change capped so it is 0 at `outer`
+export const FIT = { bank: 2, maxBank: 12, eps: 0.01, ramp: 16 };
+export function fitMargin(n, cell = MESH_CELL) { return cell / n * Math.SQRT2 + 0.5; }
+export function fitRoad(r, h0, margin) {
+  const pts = dropRepeats(r.pts), cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const len = cum[cum.length - 1], h = (t) => roadProfileH(r, t); let maxGap = 0;
+  for (let t = 0; t <= len + 2; t += 4) { const s = Math.min(t, len), [x, z] = pointAtLength(pts, s); maxGap = Math.max(maxGap, Math.abs(h(s) - h0(x, z))); }
+  const hw = r.w / 2; return { pts, hw, cum, h, outer: hw + margin + Math.min(FIT.bank * (maxGap + 0.5), FIT.maxBank) };
+}
+export function roadFitAt(cands, x, z, m, margin) {
+  let best = null;
+  for (const { f, i } of cands) {
+    const [ax, az] = f.pts[i], [bx, bz] = f.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, d = Math.hypot(x - ax - u * dx, z - az - u * dz);
+    if (d >= f.outer) continue; const gap = d - (f.hw + margin);
+    if (!best || gap < best.gap) best = { f, d, gap, t: f.cum[i] + u * Math.sqrt(L2) };
+  }
+  if (!best) return 0;
+  const { f, d, gap, t } = best, y = f.h(t), slack = Math.max(0, gap) / FIT.bank, cap = (f.outer - d) / FIT.bank;
+  const delta = Math.max(y - slack, Math.min(y + slack, m)) - m;
+  return Math.max(-cap, Math.min(cap, delta));
+}
+// #1152: where the game already patches the terrain at 1 m (cuts, grades, banks, pads, the cave) profile and fit step back:
+// 0 inside those cells and the ring around them, rising to 1 over `ramp` m, so a fitted cell never borders a 1 m one
+export function yieldWeight(cells, G, x, z, ramp = FIT.ramp) {
+  if (!cells.size) return 1;
+  const ci = Math.floor((x - G.x0) / G.dx), cj = Math.floor((z - G.z0) / G.dz), r = 1 + Math.ceil(ramp / G.dx); let best = Infinity;
+  for (let j = cj - r; j <= cj + r; j++) for (let i = ci - r; i <= ci + r; i++) {
+    if (!cells.has(i + ',' + j)) continue;
+    const x0 = G.x0 + i * G.dx, z0 = G.z0 + j * G.dz, ex = Math.max(0, x0 - x, x - x0 - G.dx), ez = Math.max(0, z0 - z, z - z0 - G.dz);
+    best = Math.min(best, Math.hypot(ex, ez));
+  }
+  return Math.max(0, Math.min(1, (best - G.dx) / ramp));
+}
 
 // #42 grades: a stretch of road on its own vertical profile (the Südspange's cutting and underpass). g = { pts, hw,
 // ctl: [[t, cut]] } from the world file; h0(x, z) = the uncut mesh. A grade is one more source for #76's terrain patch:
