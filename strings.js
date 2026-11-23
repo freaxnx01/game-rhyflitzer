@@ -832,6 +832,8 @@ const en = {
   mpCopy: 'Copy',
   mpCopied: 'Copied',
   mpMaking: 'Making the code…',
+  mpJoinedElsewhere: 'Joined in your other tab',   // #1111: the new tab hands the code to the open one
+  mpJoinReceived: 'Invitation received',
   mpNoCodec: 'This browser cannot make a code. Try a current Chrome, Edge, Firefox or Safari.',
   mpExpiresIn: (s) => `Code valid for another ${s}`,
   mpCodeGone: 'The code has run out — make a new one.',
@@ -1706,6 +1708,8 @@ const de = {
   mpCopy: 'Kopieren',
   mpCopied: 'Kopiert',
   mpMaking: 'Code wird erstellt…',
+  mpJoinedElsewhere: 'Im anderen Tab beigetreten',   // #1111: der neue Tab übergibt den Code dem offenen
+  mpJoinReceived: 'Einladung erhalten',
   mpNoCodec: 'Dieser Browser kann keinen Code erstellen. Probiere ein aktuelles Chrome, Edge, Firefox oder Safari.',
   mpExpiresIn: (s) => `Code noch ${s} gültig`,
   mpCodeGone: 'Der Code ist abgelaufen — mach einen neuen.',
