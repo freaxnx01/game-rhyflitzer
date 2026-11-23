@@ -1736,16 +1736,25 @@ function buildCuts() {
 if (L) buildCuts();
 // #1152: every profiled road's fit, in FIT_N patches; cells the 1 m patches own (and the cave) yield
 function profileWeight(x, z) { return yieldWeight(YIELD_CELLS, TGRID, x, z); }
-function fitDelta(x, z) { const c = gridQuery(FIT_GRID, x, z, 0); if (!c.size) return 0; const w = profileWeight(x, z); return w ? w * roadFitAt(c, x, z, meshH(x, z), FIT_MARGIN) : 0; }
+// is a 1 m patch in reach of any point of cell (i, j)? yieldWeight looks 1 + ramp/dx cells around a point, a point of this
+// cell lies in cells i - 1 .. i + 1 (its far border rounds up) -- false means weight 1 throughout, no per-vertex scan
+function yieldNear(i, j, G) { const r = 2 + Math.ceil(FIT.ramp / G.dx); for (let b = j - r; b <= j + r; b++) for (let a = i - r; a <= i + r; a++) if (YIELD_CELLS.has(a + ',' + b)) return true; return false; }
 function buildFit() {
-  const t0 = performance.now(), G = TGRID, W = FIT_N + 1, seen = new Set();
+  const t0 = performance.now(), G = TGRID, W = FIT_N + 1, seen = new Set(), cellR = Math.hypot(G.dx, G.dz) / 2 + 0.5;
   for (const key of CUT_CELLS.keys()) YIELD_CELLS.add(key);
   if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), G)) YIELD_CELLS.add(i + ',' + j);
   for (const r of L.roads) { if (!r.zp || r.bridge) continue; const f = fitRoad(r, meshH, FIT_MARGIN); FIT_ROADS.push(f); for (let i = 0; i < f.pts.length - 1; i++) gridAddSegment(FIT_GRID, ...f.pts[i], ...f.pts[i + 1], f.outer, { f, i }); }
   for (const f of FIT_ROADS) for (const [i, j] of gradeCells(f, G)) {   // gradeCells reads only pts and outer
     const key = i + ',' + j; if (seen.has(key) || YIELD_CELLS.has(key)) continue; seen.add(key);
-    const p = new Float32Array(W * W); let moved = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / FIT_N) * G.dx, z = G.z0 + (j + b / FIT_N) * G.dz, d = fitDelta(x, z); p[b * W + k] = meshH(x, z) + d; if (Math.abs(d) > FIT.eps) moved = true; }
+    // one grid query and one yield scan for the whole cell: cellR covers it, so every vertex sees the same candidates
+    const cands = gridQuery(FIT_GRID, G.x0 + (i + 0.5) * G.dx, G.z0 + (j + 0.5) * G.dz, cellR);
+    if (!cands.size) continue;
+    const free = !yieldNear(i, j, G), p = new Float32Array(W * W); let moved = false;
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) {
+      const x = G.x0 + (i + k / FIT_N) * G.dx, z = G.z0 + (j + b / FIT_N) * G.dz, m = meshH(x, z);
+      const w = free ? 1 : profileWeight(x, z), d = w ? w * roadFitAt(cands, x, z, m, FIT_MARGIN) : 0;
+      p[b * W + k] = m + d; if (Math.abs(d) > FIT.eps) moved = true;
+    }
     if (moved) FIT_CELLS.set(key, p);
   }
   Object.assign(FIT_STATS, { roads: FIT_ROADS.length, cells: FIT_CELLS.size, triangles: FIT_CELLS.size * (2 * FIT_N * FIT_N - 2), ms: performance.now() - t0 });
