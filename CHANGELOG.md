@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-23 14:54` Im **Mehrspieler** wechselt der Gastgeber den **Spielmodus**, ohne dass jemand neu verbinden muss: Pause → **Modus wechseln (Lobby)** bringt alle in die Lobby, dort startet er **Gemeinsam losfahren** oder **Rennen starten**.
 - `2026-11-23 14:19` Im **Mehrspieler-Rennen** listet das HUD unter der eigenen Position jeden **Gegner** auf: wie viele **Checkpoints** er schon passiert hat und wie viele Meter bis zum nächsten — auch wenn er ausser Sicht fährt.
 - `2026-11-23 11:26` Im **Mehrspieler-Rennen** bleiben **Helikopter**, **Lok** und **zu Fuss** gesperrt: Von der Startaufstellung bis zum Rennende zeigt <kbd>F</kbd> oder <kbd>Z</kbd> nur noch "Im Rennen nicht möglich". Beim gemeinsamen Herumfahren geht weiterhin alles.
 - `2026-11-23 11:02` **Felbi** steht jetzt unter **Über Rhyflitzer → Leute**, als **Hinweisgeber** für Brücken und Unterführungen, die nicht der Wirklichkeit entsprachen.
