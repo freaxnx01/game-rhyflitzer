@@ -26,11 +26,11 @@ test('floorAtY_OnStairsAndLandings_NamesTheStoreyBelowTheHalfLanding', () => {
 });
 
 test('floorLabel_SwissNaming_EgOgDach_AndEnglish', () => {
-  assert.deepEqual([0, 1, 4, 9, 10].map(k => floorLabel(k, 'de')), ['EG', '1. OG', '4. OG', '9. OG', 'Dach']);
-  assert.deepEqual([0, 1, 2, 3, 4, 9, 10].map(k => floorLabel(k, 'en')), ['ground floor', '1st floor', '2nd floor', '3rd floor', '4th floor', '9th floor', 'roof']);
-  assert.equal(hudFloorText('6c', 4, 'de'), '6c · 4. OG');
-  assert.equal(hudFloorText('6c', 4, 'en'), '6c · 4th floor');
-  assert.equal(hudFloorText('6c', 0, 'en'), '6c · ground floor');
+  assert.deepEqual([0, 1, 5, 9, 10].map(k => floorLabel(k, 'de')), ['EG', '1. OG', '5. OG', '9. OG', 'Dach']);
+  assert.deepEqual([0, 1, 2, 3, 5, 9, 10].map(k => floorLabel(k, 'en')), ['ground floor', '1st floor', '2nd floor', '3rd floor', '5th floor', '9th floor', 'roof']);
+  assert.equal(hudFloorText('6', 5, 'de'), '6 · 5. OG');
+  assert.equal(hudFloorText('6', 5, 'en'), '6 · 5th floor');
+  assert.equal(hudFloorText('6', 0, 'en'), '6 · ground floor');
 });
 
 test('keypadLabel_Buttons_EgOneToNineDach', () => {
