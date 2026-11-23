@@ -69,6 +69,18 @@ test('parsePose_encoded_roundTripsWithinQuantisation', () => {
   for (const k of ['vx', 'vz']) assert.ok(Math.abs(p[k] - POSE[k]) <= 0.01, k);
 });
 
+// #1146: the car's yaw (-P.th) is never wrapped, it grows with every turn; the record carries ±3.2767 rad only
+test('encodePose_HeadingBeyondHalfTurn_ArrivesAsTheSameDirection', () => {
+  const same = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) <= 2e-4;
+  for (const ry of [3.5, -7, 12.6, -40.2, 2 * Math.PI * 9 + 0.3]) {
+    for (const k of ['ry', 'rx', 'rz', 'steer']) {
+      const p = parsePose(encodePose({ ...POSE, [k]: ry }));
+      assert.ok(same(p[k], ry), `${k} ${ry} -> ${p[k]}`);
+      assert.ok(Math.abs(p[k]) <= Math.PI + 1e-4, `${k} ${ry} wrapped into ±pi`);
+    }
+  }
+});
+
 test('parsePose_hit_roundTrips', () => {
   assert.equal(parsePose(encodePose(POSE)).hit, null);
   const p = parsePose(encodePose({ ...POSE, hit: { to: 3, n: 31, c: 42.5 } }));
