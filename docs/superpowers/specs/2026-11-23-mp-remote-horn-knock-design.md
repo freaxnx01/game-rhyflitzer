@@ -74,9 +74,10 @@ Nitro and crash sounds of the other car (decided, A1). Stereo panning. Remote en
   horn when known. Rejected: gating a held tone by the bit (the horn is a fixed-length one-shot locally, `playHorn`).
 - **A8** [med] The knock hook is a new optional dep `knocked` in `createKnock`, so only primary knocks are sent. Rejected: filtering
   by sound name inside the existing `play` callback (secondary scrape/clink sounds share names with primary ones).
-- **A9** [med] No `CODE_VERSION` bump. An older build refuses a pose with bit 6 set, so mixed-version pairs freeze the honking car for
-  the older peer; everyone plays the current deployed version. Rejected: bumping `CODE_VERSION` (`netcodec.js:5`), which would
-  invalidate every code in flight for a sound feature.
+- **A9** [confirmed] Bump `CODE_VERSION` from 1 to 2 (`netcodec.js:5`). Maintainer's answer (2026-11-23): "CODE_VERSION
+  erhöhen": an older build and a newer one then refuse each other's codes with the existing clear `version` error instead
+  of a honking car freezing silently for the older peer. Cost accepted: codes in flight at the deploy become invalid.
+  Rejected: no bump.
 
 ## Consequences
 

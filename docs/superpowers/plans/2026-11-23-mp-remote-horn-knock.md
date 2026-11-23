@@ -39,6 +39,10 @@ test('encodePose_hornBit_roundTrips', () => {
   with a one-line comment (a query: pure).
 - [ ] `netcodec.js`: line 48 `v.setUint8(32, p.flags & 0x7f);   // bit 7 is reserved and must stay 0`; `parsePose`: `if (flags & 0x80) return null;`
   and fix the two comments that say "bits 6-7".
+- [ ] `netcodec.js:5`: `CODE_VERSION = 2` (spec A9, confirmed: old and new builds refuse each other with `mpErrVersion`
+  instead of freezing a honking car). Update the literal `R1` code prefixes to `R2` in `tests/netcodec.test.mjs`
+  (lines ~10, 27 (`R2`→`R3` for the wrong version), 33, 34, 117-123) and `tests/test_multiplayer_lobby.py:49`;
+  `grep -rn "'R1\|\"R1\|R1H\|R1G" tests/` must find nothing left.
 - [ ] Run both test files green, then `node --test tests/*.test.mjs`. Commit `feat(multiplayer): horn pose bit and hearing falloff (#1112)`.
 
 ## Task 2: `knock` message (pure, TDD)
