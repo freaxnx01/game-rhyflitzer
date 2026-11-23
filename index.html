@@ -991,6 +991,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <!-- #842: Settings after About, like the start screen -->
       <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
+      <!-- #1110: the host's change-mode button, only in a shared drive -->
+      <button id="pauselobby" class="btn" type="button" hidden data-i18n="pauseMpMode">Change mode (lobby)</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
       <button id="pausereload" class="btn" type="button" data-i18n="reloadBtn">Reload</button>
       <button id="pausetutorial" class="btn" type="button" data-i18n="tutPause" hidden>End tutorial</button>
@@ -1087,7 +1089,7 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { DELIV, DEPOTS, mulberry32, nearestPlace, buildAddresses, resolveDepots, homeDepots, pickOrder, newShift, beginOrder, tick as delivTick, applyImpact as delivImpact, applyPenalty as delivPenalty, isNewBest } from './delivery.js';
-import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
+import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor, withLobbyButton } from './pause.js';
 import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
@@ -7476,9 +7478,23 @@ function netRematch() {
   NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
   netStartSession('race', t0);
 }
+// #837 part d / #1110: the host takes everyone back to the lobby; the link stays, the next mode is picked there
+function netHostToLobby() {
+  if (NET.role !== 'H' || !NET.session) return;
+  NET.link.broadcast({ type: 'back' });
+  netBackToLobby();
+}
+// #1110: it can now arrive mid-drive -- every pause dialog closes and a running run is abandoned, as on Main menu
+function netAbandonRun() {
+  closeTimetable(); closeAbout(); closeSettings(); closePause();   // each a no-op when not open; closePause also undoes a vehicle swap
+  if (R.state !== 'racing' && R.state !== 'armed') return;         // a finished race keeps its state (the result path)
+  trackModeEnd('abandoned');
+  R.state = 'ready';
+}
 // everyone: the session ends, the link stays, the lobby is back. A13: the start overlay shows behind it, as netLeave
 // does. The host clears the ready flags, so a new car pick and an invite are possible again.
 function netBackToLobby() {
+  netAbandonRun();
   netEndSession();
   $('overlay').hidden = false;
   if (NET.role === 'H') {
@@ -7530,7 +7546,8 @@ $('mprace').onclick = () => {
   netStartSession('race', t0);
 };
 $('mprematch').onclick = netRematch;
-$('mpback').onclick = () => { if (NET.role !== 'H') return; NET.link.broadcast({ type: 'back' }); netBackToLobby(); };
+$('mpback').onclick = netHostToLobby;
+$('pauselobby').onclick = netHostToLobby;
 $('mpleave').onclick = netLeave;
 // A5: a guest would need the same world file, and the code cannot carry one
 if (REGION.generated) $('mpbtn').hidden = true;
@@ -7751,8 +7768,9 @@ window.__mm.ostriches = () => ({   // #846: the paddock's debug hook
 const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
 const holdSound = (on) => SFX.hold('menu', on);   // #14: one of several hold reasons -- a hidden tab holds 'tab' and must not release this one
-const PAUSE_ALL = [...new Set([...PAUSE_BUTTONS, ...pauseButtonsFor('tutorial')])];
-const pauseIds = () => pauseButtonsFor(R.mode).filter((id) => id !== 'pausetimetable' || POSTAUTO.ready);   // #801: no Timetable button in a region without a timetable   // #534: every button any mode shows
+const PAUSE_ALL = [...new Set([...PAUSE_BUTTONS, ...pauseButtonsFor('tutorial'), 'pauselobby'])];
+const netHostDriving = () => NET.role === 'H' && NET.session;   // #1110: only the host, only while the shared drive runs
+const pauseIds = () => { const ids = pauseButtonsFor(R.mode).filter((id) => id !== 'pausetimetable' || POSTAUTO.ready); return netHostDriving() ? withLobbyButton(ids) : ids; };   // #801: no Timetable button in a region without a timetable   // #534: every button any mode shows
 function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; setRadioPanel(false); if (document.pointerLockElement) document.exitPointerLock(); for (const k in keys) keys[k] = false; closeHelp(); closeJump(); $('pause').hidden = false; holdSound(true); for (const id of PAUSE_ALL) $(id).hidden = !pauseIds().includes(id); $(PAUSE_BUTTONS[0]).focus(); }
 function closePause() { if (!PAUSE.on) return; if (CARSEL.swap) restoreVehicleSwap(); /* every exit from the pause undoes an open vehicle change (#189) */ PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); if (R.mode === 'delivery') { startDelivery(); return; } startRace(R.mode); }   // #107
