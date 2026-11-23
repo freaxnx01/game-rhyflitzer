@@ -1026,7 +1026,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, patchH } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
 import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
@@ -1594,6 +1594,10 @@ function meshH(x, z) {
 // face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
 const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [], SLOPES = [];
+// #1152: terrain fitted to the road profiles, FIT_N x FIT_N patches per 16 m cell (key 'i,j' -> heights, row-major (FIT_N+1)^2)
+const NO_PROFILE = new URLSearchParams(location.search).get('noprofile') === '1';   // A/B for the cost measurement
+const FIT_N = 4, FIT_MARGIN = fitMargin(FIT_N), FIT_CELLS = new Map(), FIT_GRID = makeGrid(32), FIT_ROADS = [], YIELD_CELLS = new Set();
+const FIT_STATS = { roads: 0, cells: 0, triangles: 0, ms: 0 };
 // #42: graded roads (the Südspange's cutting): one more source for the patches. gradedH is the uncut mesh brought down to
 // their profile and banks -- the ground #76's cuts are sized on, so a crossing inside a grade cuts only what the grade
 // does not already give (nothing, at the Südspange: no walls, no arms there). Without grades gradedH === meshH.
@@ -1607,12 +1611,10 @@ function patchGround(x, z) { const g = gradedH(x, z); if (!FINE_BANKS.length) re
 const PATCH_BLEED = Math.SQRT2 * Math.max(TGRID.dx, TGRID.dz) / CUT_N;   // #156: how far a patch's triangles carry one lowered vertex
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
-  if (CUT_CELLS.size && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
-    const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), p = CUT_CELLS.get(i + ',' + j);
-    if (p) {
-      const sx = (fx - i) * CUT_N, sz = (fz - j) * CUT_N, a = Math.min(Math.floor(sx), CUT_N - 1), b = Math.min(Math.floor(sz), CUT_N - 1), W = CUT_N + 1;
-      return triLerp(p[b * W + a], p[(b + 1) * W + a], p[(b + 1) * W + a + 1], p[b * W + a + 1], sx - a, sz - b);
-    }
+  if ((CUT_CELLS.size || FIT_CELLS.size) && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
+    const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), key = i + ',' + j, p = CUT_CELLS.get(key);
+    if (p) return patchH(p, CUT_N, fx - i, fz - j);
+    const q = FIT_CELLS.get(key); if (q) return patchH(q, FIT_N, fx - i, fz - j);   // #1152: the fit beside a profiled road
   }
   return meshH(x, z);
 }
@@ -1732,6 +1734,23 @@ function buildCuts() {
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
 }
 if (L) buildCuts();
+// #1152: every profiled road's fit, in FIT_N patches; cells the 1 m patches own (and the cave) yield
+function profileWeight(x, z) { return yieldWeight(YIELD_CELLS, TGRID, x, z); }
+function fitDelta(x, z) { const c = gridQuery(FIT_GRID, x, z, 0); if (!c.size) return 0; const w = profileWeight(x, z); return w ? w * roadFitAt(c, x, z, meshH(x, z), FIT_MARGIN) : 0; }
+function buildFit() {
+  const t0 = performance.now(), G = TGRID, W = FIT_N + 1, seen = new Set();
+  for (const key of CUT_CELLS.keys()) YIELD_CELLS.add(key);
+  if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), G)) YIELD_CELLS.add(i + ',' + j);
+  for (const r of L.roads) { if (!r.zp || r.bridge) continue; const f = fitRoad(r, meshH, FIT_MARGIN); FIT_ROADS.push(f); for (let i = 0; i < f.pts.length - 1; i++) gridAddSegment(FIT_GRID, ...f.pts[i], ...f.pts[i + 1], f.outer, { f, i }); }
+  for (const f of FIT_ROADS) for (const [i, j] of gradeCells(f, G)) {   // gradeCells reads only pts and outer
+    const key = i + ',' + j; if (seen.has(key) || YIELD_CELLS.has(key)) continue; seen.add(key);
+    const p = new Float32Array(W * W); let moved = false;
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / FIT_N) * G.dx, z = G.z0 + (j + b / FIT_N) * G.dz, d = fitDelta(x, z); p[b * W + k] = meshH(x, z) + d; if (Math.abs(d) > FIT.eps) moved = true; }
+    if (moved) FIT_CELLS.set(key, p);
+  }
+  Object.assign(FIT_STATS, { roads: FIT_ROADS.length, cells: FIT_CELLS.size, triangles: FIT_CELLS.size * (2 * FIT_N * FIT_N - 2), ms: performance.now() - t0 });
+}
+if (L && !NO_PROFILE) buildFit();
 const ROAD_CUT_DECKS = new Set(ROAD_CUTS.filter((c) => c.depth > 0).map((c) => c.deck));   // #1044: the road decks a kept road cut runs under
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
 function roofedAt(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal); }
@@ -1877,15 +1896,16 @@ function fieldMeshes(list, countsKey) {   // #530: today's strips and the 1952 o
   });
   window.__mm.counts[countsKey] = counts;
 }
-function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain); colorize(g, c); push(role, g); return g; }
-function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // mitred polyline strip, shared vertices at joints; hFn: lay it on another surface
+function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false, hFn = null, liftOn = null) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain, hFn, liftOn); colorize(g, c); push(role, g); return g; }
+// hFn: lay it on another surface; #1152: liftOn is the surface #290's lift clears (the terrain, where hFn is a road profile)
+function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null, liftOn = null) { // mitred polyline strip, shared vertices at joints
   const clean = dropRepeats(src), pts = onTerrain || hFn ? resample(clean, 4) : clean; const hAt = (p) => hFn ? hFn(p) + y : onTerrain ? terrainH(p[0], p[1]) + y : y;
   const L = pts.length, left = [], right = [], dist = [0]; for (let i = 1; i < L; i++) dist.push(dist[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   for (let i = 0; i < L; i++) { const p = pts[i]; const d0 = i > 0 ? [p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]] : null, d1 = i < L - 1 ? [pts[i + 1][0] - p[0], pts[i + 1][1] - p[1]] : null; const nz = (d) => { const l = Math.hypot(d[0], d[1]); return [-d[1] / l, d[0] / l]; }; let n; let sc = hw; if (d0 && d1) { const a = nz(d0), b = nz(d1); n = [a[0] + b[0], a[1] + b[1]]; const l = Math.hypot(n[0], n[1]) || 1; n = [n[0] / l, n[1] / l]; sc = hw / Math.max(0.35, n[0] * a[0] + n[1] * a[1]); } else n = nz(d0 || d1); left.push([p[0] - n[0] * sc, p[1] - n[1] * sc]); right.push([p[0] + n[0] * sc, p[1] + n[1] * sc]); }
   // edge heights; on terrain, #290: lift both ends of a quad by the most the ground rises over its drawn triangles anywhere
   // across and along it (a fold between the edges, or the quad's own twist), so the strip stays on top
   const hl = left.map(hAt), hr = right.map(hAt);
-  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
+  if (onTerrain) { const liftAt = liftOn ? (p) => liftOn(p) + y : hAt, up = ribbonLift(left, right, hl, hr, liftAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
   const pos = [], uv = [], nrm = []; for (let i = 0; i < L - 1; i++) { const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } const v0 = dist[i] / tileLen, v1 = dist[i + 1] / tileLen; uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.surf = { pts, hw, hl, hr }; return g;
 }
@@ -2656,11 +2676,12 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // #101: a terrain vertex inside the Rhine goes down to the bed, in sand (the smooth style ignores vertex colours: green there)
   const groundVertex = (x, z) => { const h = terrainH(x, z), rd = riverDist(x, z), wl = rd < 0 ? waterLevelAt(x, z, 1e4) : null; return wl === null ? { h, c: groundCol(h, x, z) } : { h: Math.min(h, wl - bedDepth(rd)), c: BED_COL }; };
   { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const { h, c } = groundVertex(x, z); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
-  if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 1 m patches (the same heights terrainH returns)
+  if (CUT_CELLS.size || FIT_CELLS.size) { // #76: drop the coarse cells under a cut (#1152: under a fit) and draw their patches (the same heights terrainH returns)
     const p = ground.attributes.position, idx = ground.index.array, keep = [];
     for (let k = 0; k < idx.length; k += 3) {
       const cx = (p.getX(idx[k]) + p.getX(idx[k + 1]) + p.getX(idx[k + 2])) / 3, cz = (p.getZ(idx[k]) + p.getZ(idx[k + 1]) + p.getZ(idx[k + 2])) / 3;
-      if (!CUT_CELLS.has(Math.floor((cx - TGRID.x0) / TGRID.dx) + ',' + Math.floor((cz - TGRID.z0) / TGRID.dz))) keep.push(idx[k], idx[k + 1], idx[k + 2]);
+      const key = Math.floor((cx - TGRID.x0) / TGRID.dx) + ',' + Math.floor((cz - TGRID.z0) / TGRID.dz);
+      if (!CUT_CELLS.has(key) && !FIT_CELLS.has(key)) keep.push(idx[k], idx[k + 1], idx[k + 2]);
     }
     ground.setIndex(keep);
   }
@@ -2669,15 +2690,23 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // which keeps a 4 m sub-block that is wholly flat floor or wholly lid at 2 triangles
   const caveCells = new Set(); if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) caveCells.add(i + ',' + j);
   // (a sub-block of flat floor or of unlowered hill is planar on the grid's own split, so cellTris' 2 triangles are exact there)
+  // one cell drawn as an n x n patch, heights and colours from groundVertex (so from terrainH): #76's cuts at CUT_N, #1152's fits at FIT_N
+  const patchGeo = (i, j, n) => {
+    const p = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, n, n);
+    p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
+    const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
+    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), { h, c } = groundVertex(x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
+    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); return p;
+  };
   for (const key of CUT_CELLS.keys()) {
     const [i, j] = key.split(',').map(Number), cave = caveCells.has(key);
     const g = cave ? cellGeo(cellTris(i, j, terrainH, () => true, () => true), groundCol) : null;
     if (g) { HIDE.floorTris += g.attributes.position.count / 3; parts.grass.push(g); continue; }
-    const p = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
-    p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
-    const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
-    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), { h, c } = groundVertex(x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
-    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p);
+    parts.grass.push(patchGeo(i, j, CUT_N));
+  }
+  for (const key of FIT_CELLS.keys()) {   // #1152: the fitted cells, FIT_N x FIT_N, heights from terrainH (the fit)
+    const [i, j] = key.split(',').map(Number);
+    parts.grass.push(patchGeo(i, j, FIT_N));
   }
   if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy under it, wound to face down (ceiling, into stone)
     // #201: the ceiling is ceilingH (tunnels capped at 12 m, rooms the hill's underside, the lobby 14 m)
@@ -2709,7 +2738,11 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
-  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
+  // #1152: a profiled road's height at p: its profile at the nearest point, blended to the draped terrain in yield zones
+  function roadHeightFn(r) { const pts = dropRepeats(r.pts); return (p) => { const n = nearestOnPolyline(pts, p[0], p[1]), w = profileWeight(p[0], p[1]), y = roadProfileH(r, n.t); return w >= 1 ? y : w * y + (1 - w) * terrainH(p[0], p[1]); }; }
+  const groundAt = (p) => terrainH(p[0], p[1]);
+  const onProfile = (r) => !!r.zp && !!L && !NO_PROFILE;
+  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true, onProfile(r) ? roadHeightFn(r) : null, onProfile(r) ? groundAt : null).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
   if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   await loadStage('markings');
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
@@ -5966,6 +5999,11 @@ window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.en
 window.__mm.cave = () => ({ veil: CAVE_MODE.veil && CAVE_MODE.veil.visible ? CAVE_MODE.veil.material.opacity : 0, lining: CAVE_MODE.dark && CAVE_MODE.dark.visible ? CAVE_MODE.dark.material.opacity : 0, liftHouse: !!LIFT_DOORS.top && LIFT_DOORS.top.parent.visible && LIFT_DOORS.top.visible, lamps: HIDE ? HIDE.lights.map(l => l.intensity) : [], dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || TREE_SOLID.some(im => im.visible) || FOREST_MESHES.some(f => f.bill.visible || f.coarse.some(im => im.visible) || (f.fine && f.fine.some(im => im.visible))), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
 window.__mm.level = () => ({ id: LEVELS.id, grid: OBB_GRID === SURFACE_GRID ? 'surface' : 'room', y: P.y });
 window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, level: LEVELS.id });
+window.__mm.roadFit = () => ({ ...FIT_STATS, n: FIT_N, noProfile: NO_PROFILE });   // #1152: cost of the terrain fit
+window.__mm.roadTop = (x, z) => roadTopH(x, z); window.__mm.roadSurf = (x, z) => roadSurfH(x, z); window.__mm.terrainAt = (x, z) => terrainH(x, z);
+window.__mm.profileW = (x, z) => profileWeight(x, z); window.__mm.fitKeys = () => [...FIT_CELLS.keys()];
+window.__mm.gridX0 = TGRID.x0; window.__mm.gridZ0 = TGRID.z0;
+window.__mm.profiled = () => L ? L.roads.filter((r) => r.zp && !r.bridge).map((r) => ({ id: r.id, cls: r.cls, w: r.w, pts: r.pts, zp: r.zp, zpFrom: r.zpFrom || 0, zpLen: r.zpLen })) : [];
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
 window.__mm.motorwayLabels = () => MOTORWAY_LABELS.map(l => ({ ...l }));   // #226
 window.__mm.minimapNames = () => MAP_NAMES.map(l => ({ ...l }));
