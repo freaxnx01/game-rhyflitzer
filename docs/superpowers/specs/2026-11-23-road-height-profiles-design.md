@@ -65,9 +65,9 @@ and fits the terrain at the road edges to it (cut or fill), so the car drives on
   cut. Probe on the shipped Hochrhein world: 42 755-54 127 road cells → 21.9-27.7 M triangles at 1 m, 1.4-1.7 M at 4 m
   (the whole ground mesh is about 0.6 M).
 - **A10** [confirmed] Cost gate on the desktop GPU browser at a phone viewport with 4x CPU throttle: ≤ 2.0 M added ground
-  triangles, load time ≤ +3 s and ≤ +15 %, frame time ≤ +15 % (start view, A3); a failing `FIT_N` 4 stops the
+  triangles, load time ≤ +15 %, frame time ≤ +15 % (start view, A3); a failing `FIT_N` 4 stops the
   implementation with the numbers. The real-phone check is manual after deploy, as in
-  `docs/superpowers/specs/2026-11-18-gpu-memory-budget-design.md:113`. Confirmed 2026-11-23: "Stop and report (a failing cost gate stops the run with the numbers; no automatic quality fallback)"
+  `docs/superpowers/specs/2026-11-18-gpu-memory-budget-design.md:113`. Confirmed 2026-11-23: "Stop and report (a failing cost gate stops the run with the numbers; no automatic quality fallback)" Amended 2026-11-23 after the first measurement (throttled baseline 127 s, +3 s = 2.4 %): load budget is "+15 % only" (confirmed); the +3 s cap is dropped.
 - **A11** [high] No `PIPELINE_VERSION` bump: world ids stay; pinned gallery worlds are re-queued by the operator
   (`service/README.md:151-170`: "World ids stay the same (the `PIPELINE_VERSION` is not bumped)").
 
@@ -167,7 +167,7 @@ throttle via CDP):
 | Measure | Budget |
 |---|---|
 | Triangles added to the ground (Hochrhein) | ≤ 2.0 M |
-| Load time increase | ≤ 3 s and ≤ 15 % |
+| Load time increase | ≤ 15 % |
 | Frame time increase (start view, A3) | ≤ 15 % |
 
 `FIT_N` 8 is used if it meets every budget, else `FIT_N` 4. If `FIT_N` 4 fails a budget, the implementer stops and
