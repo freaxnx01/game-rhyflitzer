@@ -1,6 +1,6 @@
 """#530: flag the roads that did not exist in 1952 in an existing world file ("Sisseln 1952" layer).
 
-Needs the buildings already flagged by `era_1952.py` (`modern`). A road is hidden ("modern": true) if, on the Swiss
+Needs the buildings already flagged by `era_1952.py` (`modern`); the traced houses in `era.houses` (`era_traced.py`) count as old footprints. A road is hidden ("modern": true) if, on the Swiss
 side (midpoint inside the CH outline; the German side stays as today), it is a motorway (`motorway*`), lies at least
 INDUSTRIAL_SHARE inside the Sisslerfeld industrial site and is not a main road, or is a residential street
 (`residential`, `living_street`, `service`) with no old Swiss building footprint within NEAR_OLD. The Fridolinsbruecke
@@ -474,8 +474,9 @@ def apply(world, outline_lv95, industrial_lonlat):
     swiss = _outline_to_game(outline_lv95, frame)
     industrial = _to_game(industrial_lonlat, frame)
     roads = world["roads"]
-    hidden = classify(roads, world["buildings"], swiss, industrial)
-    kept, routable = _plan(roads, hidden, world["buildings"], swiss)
+    footprints = world["buildings"] + world.get("era", {}).get("houses", [])  # traced houses of 1952 count as old
+    hidden = classify(roads, footprints, swiss, industrial)
+    kept, routable = _plan(roads, hidden, footprints, swiss)
     restored = 0
     for i in sorted(routable):
         if _kept_length(kept[i]) > 1e-3:

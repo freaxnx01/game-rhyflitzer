@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from '../about.js';
 
 test('ABOUT_LINKS: every link https, the agreed set, frozen', () => {
-  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'gwr', 'leaflet', 'midtown', 'nfz', 'osm', 'otd', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs', 'youtube']);
+  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'gwr', 'hist', 'leaflet', 'midtown', 'nfz', 'osm', 'otd', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs', 'youtube']);
   for (const [id, url] of Object.entries(ABOUT_LINKS)) assert.match(url, /^https:\/\/[^\s]+$/, id);
   assert.equal(ABOUT_LINKS.plattform, 'https://www.plattform-sisslerfeld.com/');
   assert.equal(ABOUT_LINKS.privacy, 'https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy');
@@ -51,6 +51,7 @@ test('aboutKeyAction: the tab keys are claimed as tab, the other game keys stay 
 test('the Aargau parcels are credited with a link (#506)', () => {
   assert.equal(ABOUT_LINKS.agis, 'https://geodienste.ch/services/lwb_nutzungsflaechen');
   assert.equal(ABOUT_LINKS.gwr, 'https://www.housing-stat.ch/');
+  assert.equal(ABOUT_LINKS.hist, 'https://map.geo.admin.ch/');
 });
 test('the horizon backdrop is credited with a link (#593)', () => {
   assert.equal(ABOUT_LINKS.copernicus, 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM');

@@ -109,3 +109,10 @@ def test_apply_keeps_existing_era_keys():
     world = {"origin": dict(ORIGIN), "sources": [], "buildings": [], "era": {"year": 1952, "fields": [x]}}
     E.apply(world, [], OUTLINE_LV95)
     assert world["era"]["fields"] == [x] and world["era"]["year"] == 1952
+
+
+def test_apply_keeps_era_houses():
+    h = house("sisseln-01", 0, 0)
+    world = {"origin": dict(ORIGIN), "sources": [], "buildings": [], "era": {"year": 1952, "houses": [h]}}
+    E.apply(world, [], OUTLINE_LV95)
+    assert world["era"]["houses"] == [h] and world["era"]["year"] == 1952

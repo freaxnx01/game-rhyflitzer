@@ -8,6 +8,7 @@ export const ABOUT_LINKS = Object.freeze({
   otd: 'https://opentransportdata.swiss/',   // #500: Postauto timetable (terms 5.1: cite as source)
   swisstopo: 'https://www.swisstopo.admin.ch/',
   gwr: 'https://www.housing-stat.ch/',   // #530: building ages
+  hist: 'https://map.geo.admin.ch/',   // #530: the 1952 houses, traced from the SWISSIMAGE HIST 1946 aerial and the Siegfriedkarte
   agis: 'https://geodienste.ch/services/lwb_nutzungsflaechen',   // #506: the Aargau farm parcels
   copernicus: 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM',   // #593: the horizon backdrop
   plattform: 'https://www.plattform-sisslerfeld.com/',

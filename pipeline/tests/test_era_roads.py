@@ -398,3 +398,15 @@ def test_apply_FridolinsbrueckeHidden_FlagsItsLandmarkAnchor():
     world["roads"][1]["n"] = "Other"
     R.apply(world, SWISS_LV95(), ind)
     assert "modern" not in world["anchors"]["landmarks"]["fridolinsbruecke"]
+
+
+def test_traced_house_keeps_residential_street():
+    ind = {"type": "Polygon", "coordinates": [[[7.99, 47.55], [7.991, 47.55], [7.991, 47.551], [7.99, 47.551], [7.99, 47.55]]]}
+    world = {"origin": {"lat": 47.5506, "lon": 7.9671},
+             "roads": [road("primary", [(100, -100), (100, 0), (100, 100)]), road("residential", [(100, 50), (300, 50)])],
+             "buildings": [], "era": {"year": 1952}}
+    R.apply(world, SWISS_LV95(), ind)
+    assert world["roads"][1]["modern"] is True
+    world["era"]["houses"] = [house(150, 45)]
+    R.apply(world, SWISS_LV95(), ind)
+    assert "modern" not in world["roads"][1]
