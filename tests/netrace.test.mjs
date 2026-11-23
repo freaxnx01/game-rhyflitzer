@@ -1,7 +1,7 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint, raceLocksSwitch } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint, raceLocksSwitch, nextCheckpoint, opponentRows } from '../netrace.js';
 import { CP_MAX } from '../netcodec.js';
 
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
@@ -151,4 +151,32 @@ test('raceLocksSwitch_runningRace_true', () => {
 
 test('raceLocksSwitch_raceOver_false', () => {
   assert.equal(raceLocksSwitch({ go: true, over: true }), false);
+});
+
+// #1119: the opponent progress list — nearest open checkpoint and the per-opponent HUD rows.
+const CPS3 = [{ x: 0, z: 0 }, { x: 100, z: 0 }, { x: 300, z: 0 }];
+
+test('nextCheckpoint_nearestUnpassed', () => {
+  assert.equal(nextCheckpoint(0b001, CPS3, { x: 290, z: 0 }), 2);   // 0 is passed, 2 is nearer than 1
+  assert.equal(nextCheckpoint(0b111, CPS3, { x: 0, z: 0 }), -1);    // all passed
+});
+
+test('opponentRows_runningFinishedDnfNoPose', () => {
+  const rows = [
+    { id: 0, name: 'Me', times: [], st: 'run', mask: 0 },
+    { id: 1, name: 'A', times: [1, 2], st: 'run', mask: 0b011 },
+    { id: 2, name: 'B', times: [1, 2, 3], st: 'run', mask: 0b111 },
+    { id: 3, name: 'C', times: [], st: 'dnf', mask: 0 },
+  ];
+  const posOf = (id) => (id === 3 ? null : { x: 0, z: 0 });
+  const out = opponentRows(rows, 0, CPS3, { x: 0, z: 50 }, posOf);
+  assert.deepEqual(out.map((r) => r.id), [1, 2, 3]);            // own row left out
+  assert.deepEqual([out[0].done, out[0].total, out[0].dist], [2, 3, 300]);
+  assert.equal(out[1].dist, 50);                                  // all passed: distance to the finish
+  assert.equal(out[2].dist, null);                                // dnf / no pose
+});
+
+test('opponentRows_finished_noDistance', () => {
+  const out = opponentRows([{ id: 1, name: 'A', times: [1, 2, 3, 4], st: 'fin', mask: 7 }], 0, CPS3, { x: 0, z: 0 }, () => ({ x: 0, z: 0 }));
+  assert.equal(out[0].dist, null);
 });
