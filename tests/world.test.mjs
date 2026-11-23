@@ -1828,3 +1828,11 @@ test('#1152 roadFitAt: two roads at different heights -> the ground takes the lo
   assert.equal(roadFitAt(both, 50, 6, 12, mg), -2);            // on the high road's axis, the low one still wins
   assert.equal(roadFitAt(both, 50, 0, 12, mg), -2);
 });
+
+test('#1152 roadFitAt: on a grade the band is cut one sub-cell diagonal of fall deeper', () => {
+  const mg = fitMargin(4), up = { pts: [[0, 0], [100, 0]], w: 6, zpFrom: 0, zpLen: 100, zp: Array.from({ length: 26 }, (_, k) => 10 + 0.1 * 4 * k) };
+  const f = fitRoad(up, (x) => 20, mg), t = 50, sag = 0.1 * (mg - 0.5);
+  assert.ok(Math.abs(roadFitAt(cands(f), t, 0, 20, mg) - (10 + 0.1 * t - sag - 20)) < 1e-9);
+  const flat = fitRoad(FLAT_ROAD, () => 12, mg);                    // no grade, no sag
+  assert.equal(roadFitAt(cands(flat), 50, 0, 12, mg), -2);
+});

@@ -549,14 +549,19 @@ export function fitRoad(r, h0, margin) {
   const pts = dropRepeats(r.pts), cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const len = cum[cum.length - 1], h = (t) => roadProfileH(r, t); let maxGap = 0;
   for (let t = 0; t <= len + 2; t += 4) { const s = Math.min(t, len), [x, z] = pointAtLength(pts, s); maxGap = Math.max(maxGap, Math.abs(h(s) - h0(x, z))); }
-  const hw = r.w / 2; return { pts, hw, cum, h, outer: hw + margin + Math.min(FIT.bank * (maxGap + 0.5), FIT.maxBank) };
+  const hw = r.w / 2; return { pts, hw, cum, h, len, outer: hw + margin + Math.min(FIT.bank * (maxGap + 0.5), FIT.maxBank) };
 }
 // one road's change at distance d from its axis, station t. The flat band (d <= hw + margin) is always exactly at the
 // profile -- truncating the cut there leaves the terrain over the carriageway. Beyond it the change banks back at 1:bank
 // where that reaches 0 inside `outer`, else linearly to 0 at `outer` (a steeper face, as a deep cutting's wall is):
 // continuous either way, so no crack against the mesh.
 function fitDelta(f, d, t, m, margin) {
-  const need = f.h(t) - m, over = Math.max(0, d - f.hw - margin), span = f.outer - f.hw - margin;
+  // the band is cut `sag` under the profile: the patch lattice is grid-aligned, so a vertex reads the profile up to one
+  // sub-cell diagonal (margin - 0.5) further along the road than the ribbon above it does, and on a grade that much
+  // higher -- without the allowance the drawn ground stands over the road surface at a road's end (#1152 AC 9)
+  const y = f.h(t), reach = margin - 0.5;   // the sub-cell diagonal: how far along the road a lattice vertex can look
+  const sag = Math.max(Math.abs(f.h(Math.min(t + reach, f.len)) - y), Math.abs(y - f.h(Math.max(t - reach, 0))));
+  const need = y - sag - m, over = Math.max(0, d - f.hw - margin), span = f.outer - f.hw - margin;
   const mag = Math.min(Math.abs(need) - over / FIT.bank, Math.abs(need) * (1 - over / (span || 1)));
   return Math.sign(need) * Math.max(0, mag);
 }

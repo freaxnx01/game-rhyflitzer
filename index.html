@@ -6016,7 +6016,7 @@ window.__mm.profileW = (x, z) => profileWeight(x, z); window.__mm.fitKeys = () =
 // #1152: how many drawn strips cover a point -- more than one (a parallel carriageway, a bridge deck, a ramp) and roadTopH
 // reads the highest of them, not this road's own profile
 window.__mm.surfsAt = (x, z) => { const hits = [], seen = new Set(), out = []; surfH(SURF_GRID, x, z, hits); for (const { sf, h } of hits) { if (seen.has(sf)) continue; seen.add(sf); out.push({ h, hw: sf.hw }); } return out; };
-window.__mm.gridX0 = TGRID.x0; window.__mm.gridZ0 = TGRID.z0;
+window.__mm.gridX0 = TGRID.x0; window.__mm.gridZ0 = TGRID.z0; window.__mm.gridNx = TGRID.nx; window.__mm.gridNz = TGRID.nz;
 window.__mm.profiled = () => L ? L.roads.filter((r) => r.zp && !r.bridge).map((r) => ({ id: r.id, cls: r.cls, w: r.w, pts: r.pts, zp: r.zp, zpFrom: r.zpFrom || 0, zpLen: r.zpLen })) : [];
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
 window.__mm.motorwayLabels = () => MOTORWAY_LABELS.map(l => ({ ...l }));   // #226

@@ -101,12 +101,16 @@ def smooth_all(roads, sample) -> list[np.ndarray]:
 
 
 def _hats(ts, pins) -> np.ndarray:
-    """Sum of d * max(0, 1 - |t - tk| / Fk), Fk = min(FADE, gap to the neighbouring pins): every pin is met exactly."""
+    """Sum of d * smoothstep(1 - |t - tk| / Fk), Fk = min(FADE, gap to the neighbouring pins): every pin is met exactly
+    and the correction dies with zero slope at Fk. A linear tent instead leaves a kink at the pin, and the game's road
+    ribbon and its terrain patch cut that corner at different stations -- the terrain then stands up to 0.2 m over the
+    road surface at a junction (#1152 AC 9)."""
     out = np.zeros_like(ts)
     for k, (tk, d) in enumerate(pins):
         gaps = [abs(tk - pins[j][0]) for j in (k - 1, k + 1) if 0 <= j < len(pins)]
         f = min([FADE] + gaps)
-        out += d * np.clip(1.0 - np.abs(ts - tk) / f, 0.0, None)
+        w = np.clip(1.0 - np.abs(ts - tk) / f, 0.0, 1.0)
+        out += d * w * w * (3.0 - 2.0 * w)
     return out
 
 

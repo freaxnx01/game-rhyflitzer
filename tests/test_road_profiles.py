@@ -28,18 +28,28 @@ CHECKS = """async () => {
       const [x, z] = W.pointAtLength(r.pts, t); if (mm.profileW(x, z) < 1) { ys.push(null); continue; }
       const y = W.profileAt(r.zp, r.zpLen, r.zpFrom + t), top = mm.roadTop(x, z); ys.push(top);
       const k = Math.round((r.zpFrom + t) / 4), near = r.zp.slice(Math.max(0, k - 1), k + 2);
-      if (near.some((v, i, a) => i && Math.abs(v - a[i - 1]) > 1)) out.cliff++;
+      const cliff = near.some((v, i, a) => i && Math.abs(v - a[i - 1]) > 1);
+      if (cliff) out.cliff++;
       else if (mm.surfsAt(x, z).length > 1) out.overlap++;
       else out.onProfile.push(Math.abs(top - (y + 0.04)));
-      if (t % 20 === 0) { const a = W.pointAtLength(r.pts, Math.min(len, t + 0.5)), dx = a[0] - x, dz = a[1] - z, l = Math.hypot(dx, dz) || 1;
-        for (let s = -hw + 0.3; s <= hw - 0.3; s += 1) { const px = x - dz / l * s, pz = z + dx / l * s, rs = mm.roadSurf(px, pz); if (rs === -Infinity) continue; out.sampled++; if (mm.terrainAt(px, pz) > rs + 1e-3) out.covered++; } }
+      // AC 9 across the carriageway, where the fit acts (profileW 1 at the sample too) and the profile is a road, not the no-data wall
+      if (t % 20 === 0 && !cliff) { const a = W.pointAtLength(r.pts, Math.min(len, t + 0.5)), dx = a[0] - x, dz = a[1] - z, l = Math.hypot(dx, dz) || 1;
+        for (let s = -hw + 0.3; s <= hw - 0.3; s += 1) { const px = x - dz / l * s, pz = z + dx / l * s, rs = mm.roadSurf(px, pz);
+          // outside the terrain grid there is neither a patch nor a ground mesh -- terrainH is the clamped edge there
+          const fx = (px - mm.gridX0) / 16, fz = (pz - mm.gridZ0) / 16;
+          if (rs === -Infinity || mm.profileW(px, pz) < 1 || fx < 0 || fz < 0 || fx > mm.gridNx || fz > mm.gridNz) continue;
+          out.sampled++; if (mm.terrainAt(px, pz) > rs + 1e-3) out.covered++; } }
     }
     if (motorway) for (let k = 2; k < ys.length; k++) if (ys[k] !== null && ys[k - 1] !== null && ys[k - 2] !== null) out.wave.push(Math.abs(ys[k] - 2 * ys[k - 1] + ys[k - 2]));
   }
+  // AC 10 on every fitted cell's border, both sides evaluated from terrainH. The grid's own outer border is left out:
+  // outside it there is no ground mesh at all, so the step there is the fit against nothing drawn, not a crack.
   const keys = mm.fitKeys(), G = 16, e = 1e-4;
   for (let n = 0; n < keys.length; n += 50) { const [i, j] = keys[n].split(',').map(Number);
     for (let s = 0; s <= 16; s += 1) for (const [x, z, ox, oz] of [[i, j + s / 16, 1, 0], [i + 1, j + s / 16, 1, 0], [i + s / 16, j, 0, 1], [i + s / 16, j + 1, 0, 1]]) {
-      const bx = mm.gridX0 + x * G, bz = mm.gridZ0 + z * G, a = mm.terrainAt(bx - ox * e, bz - oz * e), b = mm.terrainAt(bx + ox * e, bz + oz * e); out.crack = Math.max(out.crack, Math.abs(a - b)); } }
+      if (x <= 0 || z <= 0 || x >= mm.gridNx || z >= mm.gridNz) continue;
+      const bx = mm.gridX0 + x * G, bz = mm.gridZ0 + z * G, a = mm.terrainAt(bx - ox * e, bz - oz * e), b = mm.terrainAt(bx + ox * e, bz + oz * e);
+      out.crack = Math.max(out.crack, Math.abs(a - b)); } }
   return { ...out, fit: mm.roadFit() };
 }"""
 
