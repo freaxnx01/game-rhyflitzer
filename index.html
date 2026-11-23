@@ -41,6 +41,7 @@ body.campath-play #toast{visibility:hidden}   /* #900: hud-off keeps the toast r
 #time.low{color:#ff5a3c}
 #best{font-size:16px;font-weight:600;color:var(--steel)}
 #netpos{font-size:16px;font-weight:600;color:var(--steel)}
+#netopp{font-size:14px;font-weight:600;color:var(--steel);text-align:right}
 #toast{margin-top:10px;max-width:calc(100vw - 48px);box-sizing:border-box;padding:8px 18px;background:linear-gradient(#ffe27a,#ffc61a 50%,#ff9a1a);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);transform:rotate(-3deg);color:var(--ink);font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;text-align:center;opacity:0;transition:opacity .2s}
 #toast.big{font-size:34px;padding:12px 24px}
 #toast.show{opacity:1}
@@ -532,6 +533,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div id="time">00:00<b>.0</b></div>
     <div id="best">Best —</div>
     <div id="netpos" hidden></div>
+    <div id="netopp" hidden></div>
   </div>
   <div id="rec" hidden><i></i><span id="recout">0:00</span></div>
   <div id="navi" hidden><svg id="navarrow" viewBox="0 0 160 120" aria-hidden="true"><polygon points="80,4 156,84 118,84 118,116 42,116 42,84 4,84" fill="#3ddcff" stroke="#1c1f26" stroke-width="6" stroke-linejoin="round"/></svg><div id="navdist"></div><div id="navtext"></div><div id="navdest"></div></div>
@@ -1040,7 +1042,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
-import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint, raceLocksSwitch } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
@@ -7152,6 +7154,8 @@ const hostNow = () => performance.now() + (NET.role === 'H' ? 0 : NET.offset ?? 
 const netHeld = () => !!NET.race && !NET.race.go && hostNow() < NET.race.t0;
 // from the loop: 3-2-1 in big toasts, then Go! -- the race clock starts at T0, not at the first movement
 function stepNetRace() {
+  // #1119: the opponent list refreshes from the loop (throttled to 4 Hz), so the metres follow the remote poses
+  if (NET.race?.board && performance.now() - (NET.oppAt ?? 0) > 250) { NET.oppAt = performance.now(); renderNetOpp(); }
   // #837 part d: 60 s after the first finish the host writes off everyone still running
   if (NET.role === 'H' && NET.race?.state && !NET.race.state.over) {
     const r = tickRace(NET.race.state, performance.now());
@@ -7172,7 +7176,7 @@ function netRaceBoard() {
   NET.link.broadcast(msg);
   netApplyBoard(msg.rows, msg.over);
 }
-function netApplyBoard(rows, over) { NET.race.board = rows; NET.race.over = over; renderNetPos(); if (over) showNetResult(rows); }
+function netApplyBoard(rows, over) { NET.race.board = rows; NET.race.over = over; renderNetPos(); renderNetOpp(); if (over) showNetResult(rows); }
 const gapText = (ms) => (ms === null ? '—' : `${(ms / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'always' })} s`);
 function renderNetPos() {
   const el = $('netpos'), rows = NET.race?.board;
@@ -7180,6 +7184,22 @@ function renderNetPos() {
   if (!rows) return;
   const me = standings(rows).find((r) => r.id === NET.you);
   el.textContent = me ? tr('mpPos', me.pos, rows.length, gapText(me.gap)) : '';
+}
+
+// #1119: one HUD row per opponent: passed checkpoints and metres to their next one; text only, names via textContent
+const oppDist = (m) => `${m.toLocaleString(undefined, { maximumFractionDigits: 0 })} m`;
+function oppText(r) {
+  if (r.st === 'fin') return tr('mpOppFin', r.name);
+  if (r.st === 'dnf') return `${r.name} · ${tr('mpDnf')}`;
+  return tr('mpOpp', r.name, r.done, r.total, r.dist === null ? '—' : oppDist(r.dist));
+}
+function renderNetOpp() {
+  const el = $('netopp'), rows = NET.race?.board;
+  el.hidden = !rows;
+  if (!rows) return;
+  const posOf = (id) => { const p = NETCARS.get(id)?.track.poses; const q = p && p[p.length - 1]; return q ? { x: q.x, z: q.z } : null; };
+  const lines = opponentRows(rows, NET.you, CPS, FINISH, posOf).map((r) => { const d = document.createElement('div'); d.textContent = oppText(r); return d; });
+  el.replaceChildren(...lines);
 }
 
 // #837 part d, A8/A11: the ranking every device shows is standings() of the host's final board, so the order is the
@@ -7254,6 +7274,7 @@ function netEndSession() {
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; document.body.classList.remove('mpdone'); $('pauserestart').hidden = false;
   $('netpos').hidden = true;   // #837 part c: the position line leaves with the session
+  $('netopp').hidden = true;   // #1119: and so does the opponent list
   hideNetResult();             // #837 part d: and so do the result and the host's two buttons
 }
 function netPing() { NET.link.send(HOST_ID, { type: 'ping', a: performance.now() }); }
@@ -7529,7 +7550,7 @@ function openJoinLink() {
 openJoinLink();
 window.addEventListener('hashchange', openJoinLink);
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset, race: NET.race ? { t0: NET.race.t0, held: netHeld(), go: NET.race.go } : null });
-window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent, result: $('mpresult').hidden ? null : [...document.querySelectorAll('#mpresult .mp-row b')].map((b) => b.textContent), state: R.state, cpVisible: cpObjs.map((c) => c.g.visible), finishVisible: finishG.visible, arrowShown: getComputedStyle($('arrow')).display !== 'none' });   // #837 part c: the checkpoints, the board and the position line; part d: the ranked result lines
+window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent, opp: $('netopp').textContent, result: $('mpresult').hidden ? null : [...document.querySelectorAll('#mpresult .mp-row b')].map((b) => b.textContent), state: R.state, cpVisible: cpObjs.map((c) => c.g.visible), finishVisible: finishG.visible, arrowShown: getComputedStyle($('arrow')).display !== 'none' });   // #837 part c: the checkpoints, the board and the position line; #1119: the opponent list; part d: the ranked result lines
 window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.done = true; c.pillar.material = cpMatDone; c.ring.visible = false; R.done++; updatePips(); } };   // #1022 test hook: a local pass the host has not (yet) accepted — the race-the-near-window case netReopenCp must revert
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp, flames: e.flames ? { n: e.flames.children.length, visible: e.flames.visible } : null, wheels: e.mesh ? { spin: e.spin, yaw: e.wheels.filter(w => w.front).map(w => w.steer.rotation.y), rear: e.wheels.filter(w => !w.front).map(w => w.steer.rotation.y), n: e.wheels.length } : null }));   // #835: read-only, for the test; #1116: the flames group; #1108: the wheels
@@ -8050,7 +8071,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); renderLobby(); renderNetPos(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too; #950: the lobby status too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); renderLobby(); renderNetPos(); renderNetOpp(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too; #950: the lobby status too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
