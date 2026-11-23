@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-23 11:02` **Felbi** steht jetzt unter **Über Rhyflitzer → Leute**, als **Hinweisgeber** für Brücken und Unterführungen, die nicht der Wirklichkeit entsprachen.
 - `2026-11-22 21:59` In **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) stehen in **Sisseln** wieder die Häuser, die es heute nicht mehr gibt: nachgezeichnet nach dem Luftbild von 1946 und der **Siegfriedkarte**.
 - `2026-11-20 23:46` Im **Mehrspieler** drehen sich jetzt die **Räder** am Auto des anderen Spielers: Sie rollen, beim Rückwärtsfahren rückwärts, und die Vorderräder lenken mit.
 - `2026-11-20 23:28` <kbd>C</kbd> schaltet jetzt auch in eine **Seitenansicht**: Die Kamera schwebt links schräg über dem Fahrzeug und zeigt seine Flanke, ideal, um den **Tanklaster** mit ausschwenkendem Anhänger durch die Kurve zu sehen. Mit gehaltenem <kbd>B</kbd> schaust Du von rechts.

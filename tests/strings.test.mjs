@@ -214,6 +214,11 @@ test('About: Eric is credited for his vehicle ideas (#851), in both languages', 
   assert.match(translate('de', 'aboutRoleEric'), /^Ideengeber für Fahrzeuge: .*Motorrad.*$/);
 });
 
+test('About: Felbi is credited for the tip-off on bridges and underpasses, in both languages', () => {
+  assert.match(translate('en', 'aboutRoleFelbi'), /^Tip-off on bridges and underpasses/);
+  assert.match(translate('de', 'aboutRoleFelbi'), /^Hinweisgeber für Brücken und Unterführungen/);
+});
+
 test('About (#564): every agent and LLM of the pipeline is listed in both languages', () => {
   const rows = ['Impl', 'Review', 'Design', 'Local', 'Early', 'Helper', 'Mockup'];
   for (const lang of ['en', 'de']) {
