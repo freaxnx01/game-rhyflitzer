@@ -119,6 +119,14 @@ test('parseMessage_pingPongStart_validated', () => {
     assert.equal(parseMessage(m, CTX), null, m);
 });
 
+test('parseMessage_knock_validated', () => {
+  assert.deepEqual(parseMessage('{"type":"knock","s":"glass","l":0.6}', CTX), { type: 'knock', s: 'glass', l: 0.6 });
+  assert.deepEqual(parseMessage('{"type":"knock","s":"lamp","l":1,"id":2}', CTX), { type: 'knock', s: 'lamp', l: 1, id: 2 });
+  for (const m of ['{"type":"knock","s":"boom","l":0.5}', '{"type":"knock","s":"glass","l":2}', '{"type":"knock","s":"glass"}',
+    '{"type":"knock","s":"glass","l":0.5,"id":4}', '{"type":"knock","s":"glass","l":0.5,"id":"1"}', '{"type":"knock","l":0.5}'])
+    assert.equal(parseMessage(m, CTX), null, m);
+});
+
 test('joinLinkFor_readJoinHash_roundTrip', () => {
   const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R2H.abc-_XYZ');
   assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R2H.abc-_XYZ');

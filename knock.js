@@ -24,6 +24,9 @@ export const KINDS = {
   lamp:              { r: 0.3, h: 6.0, th: 0.08, push: 0, up: 0, slow: 0.12, sound: 'lamp', long: false },
 };
 export const KNOCKABLE = Object.keys(KINDS);
+// #1112: the primary knock sounds, deduplicated — what a `knock` network message may carry. The secondary sounds
+// (clink, scrape: a lying body tumbling or shoved) are not knocks and never travel.
+export const KNOCK_SOUNDS = [...new Set(Object.values(KINDS).map((k) => k.sound))];
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -287,9 +290,9 @@ export function restoreDue(age, distToCar) { return age >= RESTORE_AFTER && dist
 
 // ---------- the scene side ----------
 // deps: { THREE, parent, terrainH(x, z), groups: { kind: { mesh, list } } (list items {x, z, rot, obb?}), car: () => {x, y, z, vx, vz, r},
-//         play(sound, level), hiss(seconds), onCount(n), rng }
+//         play(sound, level), hiss(seconds), onCount(n), knocked?(sound, level) — #1112: one call per prop actually knocked over, rng }
 export function createKnock(deps) {
-  const { THREE, parent, terrainH, groups, car, play, hiss, onCount } = deps, rng = deps.rng || Math.random;
+  const { THREE, parent, terrainH, groups, car, play, hiss, onCount, knocked } = deps, rng = deps.rng || Math.random;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), zero = new THREE.Vector3(0, 0, 0), axis = new THREE.Vector3(), upV = new THREE.Vector3(0, 1, 0), piv = [0, 0, 0];
   const state = { count: 0, started: 0 };
   const all = [];   // every knockable prop: { kind, i, p, grid index }
@@ -356,11 +359,11 @@ export function createKnock(deps) {
     if (action === 'bend') {
       const n = vel || 1; a.hit = { bend: true, dx: c.vx / n, dz: c.vz / n, t: 0, done: false };
       if (a.p.obb) a.p.obb.off = true;
-      play('lamp', soundLevel(speed));
+      const lvl = soundLevel(speed); play('lamp', lvl); knocked?.('lamp', lvl);   // #1112: a bend is a knock heard by the others too
     } else {
       a.hit = launch(a.kind, a.p.x, gy, a.p.z, -a.p.rot, c, rng); a.hit.long = k.long;
       if (a.p.obb) a.p.obb.off = true;
-      play(k.sound, soundLevel(speed));
+      const lvl = soundLevel(speed); play(k.sound, lvl); knocked?.(k.sound, lvl);   // #1112: only the primary sound travels, never the scrape/clink of the tumbling
       if (a.kind === 'hydrant') startFountain(a.p.x, gy + 0.5, a.p.z);
       if (a.kind === 'clothes_container') throwClothes(a.p.x, gy + k.h * 0.7, a.p.z, a);
       if (a.kind === 'robidog') throwPoos(a.p.x, gy + 1.0, a.p.z, a);   // #469

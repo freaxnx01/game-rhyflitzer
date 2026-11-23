@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KNOCKABLE, knockAction, touches, touchesAny, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
+import { KINDS, KNOCKABLE, knockAction, touches, touchesAny, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER, KNOCK_SOUNDS } from '../knock.js';
 
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 
@@ -162,6 +162,13 @@ test('soundPlan: every recipe has events, gains scale with the level, times stay
   assert.deepEqual(soundPlan('nothing', 1), []);
   assert.ok(hissPlan(9).every(e => e.dur === 9 && e.noise));
   assert.ok(soundLevel(2) < soundLevel(20) && soundLevel(100) === 1);
+});
+
+test('KNOCK_SOUNDS: the primary knock sounds only, one of each (#1112)', () => {
+  for (const kind of KNOCKABLE) assert.ok(KNOCK_SOUNDS.includes(KINDS[kind].sound), kind);   // every kind's primary sound
+  assert.ok(KNOCK_SOUNDS.includes('lamp'), 'the lamp bend is a primary knock too');
+  for (const s of ['clink', 'scrape']) assert.ok(!KNOCK_SOUNDS.includes(s), 'secondary sounds are not knocks: ' + s);   // they share names with no primary kind
+  assert.equal(new Set(KNOCK_SOUNDS).size, KNOCK_SOUNDS.length);   // deduplicated
 });
 
 test('restoreDue: only after the minute and out of view', () => {

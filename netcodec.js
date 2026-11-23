@@ -2,6 +2,8 @@
 // Pure module: no DOM, no three.js, no RTCPeerConnection, so node --test can import it. index.html and netlink.js wire it up.
 // Nothing here ever throws and nothing is ever eval'd: a bad code or a bad message comes back as a named error or null.
 
+import { KNOCK_SOUNDS } from './knock.js';   // #1112: the sounds a knock message may carry (knock.js is pure too)
+
 export const CODE_VERSION = 2;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix)
 export const CODE_TTL = 600;        // seconds a code stays valid (10 minutes, shown as a countdown)
 export const CODE_SKEW = 60;        // seconds a code may lie in the future before it reads as expired (clock skew between devices)
@@ -236,6 +238,8 @@ const VALIDATORS = {
   cpno: (m) => (cpIndex(m.i, -1) ? { type: 'cpno', i: m.i } : null),
   board: parseBoard,
   back: () => ({ type: 'back' }),
+  // #1112: one knocked-over prop. s = a primary knock sound, l = its level 0..1; id is stamped by the relaying host only.
+  knock: (m) => (KNOCK_SOUNDS.includes(m.s) && finite(m.l) && m.l >= 0 && m.l <= 1 && (m.id === undefined || (Number.isInteger(m.id) && m.id >= 0 && m.id < MAX_PLAYERS)) ? (m.id === undefined ? { type: 'knock', s: m.s, l: m.l } : { type: 'knock', s: m.s, l: m.l, id: m.id }) : null),
 };
 
 function parsePlayer(raw, ctx) {
