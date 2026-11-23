@@ -15,13 +15,22 @@ PHONE = {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobil
 #   wave       the 2nd difference of that driven height over 8 m along every motorway axis (AC 8)
 #   covered    places across the carriageway where the terrain stands over the road surface (AC 9)
 #   crack      the biggest step in terrainH across a fitted cell's border (AC 10)
+# AC 7 counts a station only where the driven height can be this road's own profile at all. Two cases cannot:
+#   overlap  another ribbon is drawn over the axis (a parallel carriageway, a bridge deck, a ramp, a junction disc);
+#            roadTopH is the highest drawn surface there by design, so it reads that one, not this profile
+#   cliff    the profile itself steps more than 1 m per 4 m station (> 25 % grade, no road does that): the German bank
+#            beyond the swissALTI3D strip, where the .mmh is the no-data fill and its edge is a wall (#1152 A3)
 CHECKS = """async () => {
-  const W = await import('./world.js'), mm = window.__mm, out = { onProfile: [], wave: [], covered: 0, sampled: 0, crack: 0 };
+  const W = await import('./world.js'), mm = window.__mm, out = { onProfile: [], wave: [], covered: 0, sampled: 0, crack: 0, overlap: 0, cliff: 0 };
   for (const r of mm.profiled()) {
     const len = W.polylineLength(r.pts), motorway = r.cls === 'motorway', hw = r.w / 2, ys = [];
     for (let t = 0; t <= len; t += 4) {
       const [x, z] = W.pointAtLength(r.pts, t); if (mm.profileW(x, z) < 1) { ys.push(null); continue; }
-      const y = W.profileAt(r.zp, r.zpLen, r.zpFrom + t), top = mm.roadTop(x, z); out.onProfile.push(Math.abs(top - (y + 0.04))); ys.push(top);
+      const y = W.profileAt(r.zp, r.zpLen, r.zpFrom + t), top = mm.roadTop(x, z); ys.push(top);
+      const k = Math.round((r.zpFrom + t) / 4), near = r.zp.slice(Math.max(0, k - 1), k + 2);
+      if (near.some((v, i, a) => i && Math.abs(v - a[i - 1]) > 1)) out.cliff++;
+      else if (mm.surfsAt(x, z).length > 1) out.overlap++;
+      else out.onProfile.push(Math.abs(top - (y + 0.04)));
       if (t % 20 === 0) { const a = W.pointAtLength(r.pts, Math.min(len, t + 0.5)), dx = a[0] - x, dz = a[1] - z, l = Math.hypot(dx, dz) || 1;
         for (let s = -hw + 0.3; s <= hw - 0.3; s += 1) { const px = x - dz / l * s, pz = z + dx / l * s, rs = mm.roadSurf(px, pz); if (rs === -Infinity) continue; out.sampled++; if (mm.terrainAt(px, pz) > rs + 1e-3) out.covered++; } }
     }
@@ -57,7 +66,9 @@ def test_roads_on_profile_smooth_uncovered_and_no_cracks(server):
         r = page.evaluate(CHECKS); b.close()
     assert errors == [], errors
     assert r["fit"]["roads"] > 3000 and r["fit"]["cells"] > 0
-    assert pct(r["onProfile"], 0.99) <= 0.05                       # AC 7
+    counted = len(r["onProfile"])
+    assert counted > 0.9 * (counted + r["overlap"] + r["cliff"]), r   # the exclusions stay a small minority
+    assert pct(r["onProfile"], 0.99) <= 0.05, pct(r["onProfile"], 0.99)   # AC 7
     assert pct(r["wave"], 0.99) <= 0.10                            # AC 8 (2nd difference over 8 m on the A3)
     assert r["covered"] == 0, f"{r['covered']} of {r['sampled']}"  # AC 9
     assert r["crack"] <= 0.01                                      # AC 10

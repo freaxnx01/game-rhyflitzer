@@ -551,18 +551,27 @@ export function fitRoad(r, h0, margin) {
   for (let t = 0; t <= len + 2; t += 4) { const s = Math.min(t, len), [x, z] = pointAtLength(pts, s); maxGap = Math.max(maxGap, Math.abs(h(s) - h0(x, z))); }
   const hw = r.w / 2; return { pts, hw, cum, h, outer: hw + margin + Math.min(FIT.bank * (maxGap + 0.5), FIT.maxBank) };
 }
+// one road's change at distance d from its axis, station t. The flat band (d <= hw + margin) is always exactly at the
+// profile -- truncating the cut there leaves the terrain over the carriageway. Beyond it the change banks back at 1:bank
+// where that reaches 0 inside `outer`, else linearly to 0 at `outer` (a steeper face, as a deep cutting's wall is):
+// continuous either way, so no crack against the mesh.
+function fitDelta(f, d, t, m, margin) {
+  const need = f.h(t) - m, over = Math.max(0, d - f.hw - margin), span = f.outer - f.hw - margin;
+  const mag = Math.min(Math.abs(need) - over / FIT.bank, Math.abs(need) * (1 - over / (span || 1)));
+  return Math.sign(need) * Math.max(0, mag);
+}
+// the lowest of the roads reaching this point wins, as a grade cut does (gradedH): where two profiled roads at different
+// heights share a cell, the ground goes to the lower one, so neither road is covered by the terrain beside the other
 export function roadFitAt(cands, x, z, m, margin) {
-  let best = null;
+  let best = 0, any = false;
   for (const { f, i } of cands) {
     const [ax, az] = f.pts[i], [bx, bz] = f.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
     const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, d = Math.hypot(x - ax - u * dx, z - az - u * dz);
-    if (d >= f.outer) continue; const gap = d - (f.hw + margin);
-    if (!best || gap < best.gap) best = { f, d, gap, t: f.cum[i] + u * Math.sqrt(L2) };
+    if (d >= f.outer) continue;
+    const delta = fitDelta(f, d, f.cum[i] + u * Math.sqrt(L2), m, margin);
+    if (!any || delta < best) { best = delta; any = true; }
   }
-  if (!best) return 0;
-  const { f, d, gap, t } = best, y = f.h(t), slack = Math.max(0, gap) / FIT.bank, cap = (f.outer - d) / FIT.bank;
-  const delta = Math.max(y - slack, Math.min(y + slack, m)) - m;
-  return Math.max(-cap, Math.min(cap, delta));
+  return any ? best : 0;
 }
 // #1152: where the game already patches the terrain at 1 m (cuts, grades, banks, pads, the cave) profile and fit step back:
 // 0 inside those cells and the ring around them, rising to 1 over `ramp` m, so a fitted cell never borders a 1 m one

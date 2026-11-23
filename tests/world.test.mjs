@@ -1797,9 +1797,12 @@ test('#1152 roadFitAt: profile within the margin, 1:2 bank, 0 beyond outer', () 
   assert.equal(roadFitAt(cands(fitRoad(FLAT_ROAD, () => 9, mg)), 50, 0, 9, mg), 1);   // fill as well
 });
 
-test('#1152 roadFitAt: the change is capped so it reaches 0 at outer', () => {
-  const mg = fitMargin(4), f = fitRoad(FLAT_ROAD, () => 40, mg), d = f.outer - 0.5;
-  assert.ok(Math.abs(roadFitAt(cands(f), 50, d, 40, mg)) <= 0.5 / FIT.bank + 1e-9);
+test('#1152 roadFitAt: a deep cut keeps the band at the profile and banks back steeper, still 0 at outer', () => {
+  const mg = fitMargin(4), f = fitRoad(FLAT_ROAD, () => 40, mg), span = f.outer - f.hw - mg;
+  assert.equal(roadFitAt(cands(f), 50, 0, 40, mg), -30);                       // the carriageway reaches the profile, never truncated
+  assert.equal(roadFitAt(cands(f), 50, f.hw + mg, 40, mg), -30);               // and so does the margin's edge
+  assert.ok(Math.abs(roadFitAt(cands(f), 50, f.outer - 0.5, 40, mg)) <= 30 * 0.5 / span + 1e-9);   // linear to 0 at outer: no crack
+  assert.ok(Math.abs(roadFitAt(cands(f), 50, f.outer - 1e-9, 40, mg)) < 1e-6);
 });
 
 test('#1152 yieldWeight: 0 in and next to a yield cell, ramps to 1', () => {
@@ -1816,4 +1819,12 @@ test('#1152 patchH: the mesh split of an n x n patch', () => {
   assert.equal(patchH(p, 4, 0, 0), 0);
   assert.equal(patchH(p, 4, 1, 1), 24);
   assert.equal(patchH(p, 4, 0.125, 0), 0.5);
+});
+
+test('#1152 roadFitAt: two roads at different heights -> the ground takes the lower profile', () => {
+  const mg = fitMargin(4), low = { ...FLAT_ROAD, zp: FLAT_ROAD.zp.map(() => 10) };
+  const high = { pts: [[0, 6], [100, 6]], w: 6, zp: Array.from({ length: 26 }, () => 13), zpFrom: 0, zpLen: 100 };
+  const fl = fitRoad(low, () => 12, mg), fh = fitRoad(high, () => 12, mg), both = [...cands(fl), ...cands(fh)];
+  assert.equal(roadFitAt(both, 50, 6, 12, mg), -2);            // on the high road's axis, the low one still wins
+  assert.equal(roadFitAt(both, 50, 0, 12, mg), -2);
 });

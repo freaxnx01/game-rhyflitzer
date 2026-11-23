@@ -1793,7 +1793,8 @@ function streamNameAt(x, z) { for (const { sf, i } of gridQuery(STREAM_GRID, x, 
 function segS(pts, i, x, z) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az; return ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1); }
 // a point past a segment's end and before the next one's start (the outer side of a bend, or a joint itself in rounding) lies on
 // the strip's mitred corner: it takes the joint's heights
-function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { if (sf.modern && ERA.on) continue; const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
+// hits (a debug collector, #1152): every strip this reads and its height there, so a test can tell a road's own ribbon from one drawn over it
+function surfH(grid, x, z, hits = null) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { if (sf.modern && ERA.on) continue; const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; const v = f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f); if (hits) hits.push({ sf, h: v }); h = Math.max(h, v); } return h; }
 // #277: the levels. The surface keeps today's ground and colliders; the ring and the eight rooms register theirs on the first ride (ringBuild).
 const LEVELS = createLevels(); const SURFACE_GRID = OBB_GRID;
 function groundH(x, z, y) { return LEVELS.isSurface() ? surfaceGroundH(x, z, y) : LEVELS.groundAt(x, z, y); }
@@ -1905,16 +1906,16 @@ function fieldMeshes(list, countsKey) {   // #530: today's strips and the 1952 o
   });
   window.__mm.counts[countsKey] = counts;
 }
-function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false, hFn = null, liftOn = null) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain, hFn, liftOn); colorize(g, c); push(role, g); return g; }
-// hFn: lay it on another surface; #1152: liftOn is the surface #290's lift clears (the terrain, where hFn is a road profile)
-function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null, liftOn = null) { // mitred polyline strip, shared vertices at joints
-  const clean = dropRepeats(src), pts = onTerrain || hFn ? resample(clean, 4) : clean; const hAt = (p) => hFn ? hFn(p) + y : onTerrain ? terrainH(p[0], p[1]) + y : y;
+function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false, hFn = null) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain, hFn); colorize(g, c); push(role, g); return g; }
+function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // mitred polyline strip, shared vertices at joints; hFn: lay it on another surface
+  // hFn(p, t): t is the arc length of p's vertex along the centre line, undefined for a point inside a quad (the lift's probes)
+  const clean = dropRepeats(src), pts = onTerrain || hFn ? resample(clean, 4) : clean; const hAt = (p, t) => hFn ? hFn(p, t) + y : onTerrain ? terrainH(p[0], p[1]) + y : y;
   const L = pts.length, left = [], right = [], dist = [0]; for (let i = 1; i < L; i++) dist.push(dist[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   for (let i = 0; i < L; i++) { const p = pts[i]; const d0 = i > 0 ? [p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]] : null, d1 = i < L - 1 ? [pts[i + 1][0] - p[0], pts[i + 1][1] - p[1]] : null; const nz = (d) => { const l = Math.hypot(d[0], d[1]); return [-d[1] / l, d[0] / l]; }; let n; let sc = hw; if (d0 && d1) { const a = nz(d0), b = nz(d1); n = [a[0] + b[0], a[1] + b[1]]; const l = Math.hypot(n[0], n[1]) || 1; n = [n[0] / l, n[1] / l]; sc = hw / Math.max(0.35, n[0] * a[0] + n[1] * a[1]); } else n = nz(d0 || d1); left.push([p[0] - n[0] * sc, p[1] - n[1] * sc]); right.push([p[0] + n[0] * sc, p[1] + n[1] * sc]); }
   // edge heights; on terrain, #290: lift both ends of a quad by the most the ground rises over its drawn triangles anywhere
   // across and along it (a fold between the edges, or the quad's own twist), so the strip stays on top
-  const hl = left.map(hAt), hr = right.map(hAt);
-  if (onTerrain) { const liftAt = liftOn ? (p) => liftOn(p) + y : hAt, up = ribbonLift(left, right, hl, hr, liftAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
+  const hl = left.map((p, i) => hAt(p, dist[i])), hr = right.map((p, i) => hAt(p, dist[i]));
+  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
   const pos = [], uv = [], nrm = []; for (let i = 0; i < L - 1; i++) { const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } const v0 = dist[i] / tileLen, v1 = dist[i + 1] / tileLen; uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.surf = { pts, hw, hl, hr }; return g;
 }
@@ -2747,11 +2748,12 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
-  // #1152: a profiled road's height at p: its profile at the nearest point, blended to the draped terrain in yield zones
-  function roadHeightFn(r) { const pts = dropRepeats(r.pts); return (p) => { const n = nearestOnPolyline(pts, p[0], p[1]), w = profileWeight(p[0], p[1]), y = roadProfileH(r, n.t); return w >= 1 ? y : w * y + (1 - w) * terrainH(p[0], p[1]); }; }
-  const groundAt = (p) => terrainH(p[0], p[1]);
+  // #1152: a profiled road's height at p, blended to the draped terrain in yield zones. The station is ribbonGeo's own arc
+  // length where it has one: a nearest-point search snaps a hairpin ramp's edge points to the branch coming back beside it
+  // (8.5 m out on the A3 slip road w25015881), where the strip's station is unambiguous.
+  function roadHeightFn(r) { const pts = dropRepeats(r.pts); return (p, t) => { const s = t === undefined ? nearestOnPolyline(pts, p[0], p[1]).t : t, w = profileWeight(p[0], p[1]), y = roadProfileH(r, s); return w >= 1 ? y : w * y + (1 - w) * terrainH(p[0], p[1]); }; }
   const onProfile = (r) => !!r.zp && !!L && !NO_PROFILE;
-  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true, onProfile(r) ? roadHeightFn(r) : null, onProfile(r) ? groundAt : null).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
+  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true, onProfile(r) ? roadHeightFn(r) : null).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
   if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   await loadStage('markings');
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
@@ -6011,6 +6013,9 @@ window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: 
 window.__mm.roadFit = () => ({ ...FIT_STATS, n: FIT_N, noProfile: NO_PROFILE });   // #1152: cost of the terrain fit
 window.__mm.roadTop = (x, z) => roadTopH(x, z); window.__mm.roadSurf = (x, z) => roadSurfH(x, z); window.__mm.terrainAt = (x, z) => terrainH(x, z);
 window.__mm.profileW = (x, z) => profileWeight(x, z); window.__mm.fitKeys = () => [...FIT_CELLS.keys()];
+// #1152: how many drawn strips cover a point -- more than one (a parallel carriageway, a bridge deck, a ramp) and roadTopH
+// reads the highest of them, not this road's own profile
+window.__mm.surfsAt = (x, z) => { const hits = [], seen = new Set(), out = []; surfH(SURF_GRID, x, z, hits); for (const { sf, h } of hits) { if (seen.has(sf)) continue; seen.add(sf); out.push({ h, hw: sf.hw }); } return out; };
 window.__mm.gridX0 = TGRID.x0; window.__mm.gridZ0 = TGRID.z0;
 window.__mm.profiled = () => L ? L.roads.filter((r) => r.zp && !r.bridge).map((r) => ({ id: r.id, cls: r.cls, w: r.w, pts: r.pts, zp: r.zp, zpFrom: r.zpFrom || 0, zpLen: r.zpLen })) : [];
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
