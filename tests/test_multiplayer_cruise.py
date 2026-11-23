@@ -136,6 +136,47 @@ def test_remote_car_shows_nitro_flames_while_the_sender_holds_nitro(pair):
     assert errors == []
 
 
+def test_remote_horn_and_knock_are_heard_within_range(pair):
+    """#1112: the other player's horn and the props they knock over are heard here, once each, quieter with distance."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    host.bring_to_front()   # the host takes a real key below: front it before the start, while hiding still cannot pause
+    host.click("#mpgo")
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.net().session && document.querySelector('#mplobby').hidden", timeout=T)
+    guest.wait_for_function("() => window.__mm.net().offset !== null", timeout=T)
+    guest.wait_for_function(
+        "() => window.__mm.netCars().some(c => c.id === 0 && c.built && c.visible)", timeout=T)
+    assert guest.evaluate("() => window.__mm.netHeard()")["horn"] == 0   # silence before any honk
+
+    # A honk lights the pose's horn bit for the tone's whole duration (0.4-1.2 s), but this page draws
+    # about one frame a second, so a single press can fall between two of its frames: honk again until
+    # one samples a pose that carries the bit. The remote side fires once per rising edge, so the count
+    # grows by exactly one however often the key re-fires locally.
+    for _ in range(40):
+        host.keyboard.press("KeyH")
+        if guest.evaluate("() => window.__mm.netHeard().horn >= 1"):
+            break
+        guest.wait_for_timeout(500)
+    heard = guest.evaluate("() => window.__mm.netHeard()")
+    assert heard["horn"] >= 1, heard                       # once per rising edge: >= 1, the re-presses may share one
+    assert heard["last"]["kind"] == "horn" and heard["last"]["id"] == 0
+
+    # One knocked prop through the sender's real path: a reliable message, so no frame timing is
+    # involved on this side. Both cars stand on the same start grid, well within hearing range.
+    host.evaluate("() => window.__mm.netKnock('glass', 0.8)")
+    guest.wait_for_function("() => window.__mm.netHeard().knock >= 1", polling=250, timeout=T)
+    heard = guest.evaluate("() => window.__mm.netHeard()")
+    assert heard["knock"] == 1, heard
+    assert heard["last"]["kind"] == "glass" and heard["last"]["id"] == 0
+    assert 0 < heard["last"]["g"] <= 1                     # the distance falloff, full on the shared start grid
+
+    assert net(host)["bad"] == 0 and net(guest)["bad"] == 0
+    assert errors == []
+
+
 def test_a_player_who_leaves_disappears_on_the_other_device(pair):
     """The guest goes back to the main menu: the session ends there and its car is gone on the host."""
     host, guest, errors = pair
