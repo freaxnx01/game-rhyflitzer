@@ -1,7 +1,7 @@
 // #834: connection codes and lobby messages. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash } from '../netcodec.js';
+import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash, CP_MAX } from '../netcodec.js';
 
 const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.repeat(8);
 
@@ -140,4 +140,10 @@ test('parseMessage_board', () => {
     assert.equal(P({ type: 'board', over: false, rows: [bad] }), null);
   assert.equal(P({ type: 'board', over: false, rows: [row, row] }), null);   // duplicate id
   assert.equal(P({ type: 'board', over: 1, rows: [row] }), null);
+});
+test('parseMessage_boardMask', () => {
+  const row = { id: 0, name: 'A', times: [100], st: 'run', mask: 5 };
+  assert.deepEqual(P({ type: 'board', over: false, rows: [row] }), { type: 'board', over: false, rows: [row] });
+  for (const bad of [-1, 1.5, 1 << CP_MAX, 'x', null])
+    assert.equal(P({ type: 'board', over: false, rows: [{ ...row, mask: bad }] }), null);
 });
