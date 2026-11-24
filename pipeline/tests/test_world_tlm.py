@@ -56,7 +56,7 @@ def test_offset_and_direction_rules():
 def test_half_matched_piece():
     sixty = world(rail=[DECK])
     world_tlm.apply(sixty, doc([feature("rail", "Bruecke", [[(0, 0), (24, 0)]], z=310.0)]), BASE)
-    assert [t for t, _ in sixty["railBridges"][0]["tlm"]] == [float(t) for t in range(0, 25, 2)]
+    assert [t for t, _ in sixty["railBridges"][0]["tlm"]] == [float(t) for t in range(0, 27, 2)]   # axis end 24 + END_SLACK 3.0
     forty = world(rail=[DECK])
     world_tlm.apply(forty, doc([feature("rail", "Bruecke", [[(0, 0), (16, 0)]], z=310.0)]), BASE)
     assert "tlm" not in forty["railBridges"][0]
