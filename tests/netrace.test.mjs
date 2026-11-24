@@ -1,7 +1,7 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nextCheckpoint, opponentRows, nearPoint, raceLocksSwitch } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nextCheckpoint, opponentRows, nearPoint, finishHeld, raceLocksSwitch } from '../netrace.js';
 import { CP_MAX } from '../netcodec.js';
 
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
@@ -177,4 +177,13 @@ test('raceLocksSwitch_runningRace_true', () => {
 
 test('raceLocksSwitch_raceOver_false', () => {
   assert.equal(raceLocksSwitch({ go: true, over: true }), false);
+});
+
+// #1169: after a refused finish the gate stays shut for this car until it has left the finish radius once
+test('finishHeld_heldInsideRadius_staysHeld_leavingReleases', () => {
+  assert.equal(finishHeld(true, 0), true);                    // parked in the gate after a refusal
+  assert.equal(finishHeld(true, RACE.radius - 0.01), true);   // still inside
+  assert.equal(finishHeld(true, RACE.radius), false);         // left the radius: the gate opens again
+  assert.equal(finishHeld(true, 50), false);
+  assert.equal(finishHeld(false, 0), false);                  // never held: nothing to hold
 });
