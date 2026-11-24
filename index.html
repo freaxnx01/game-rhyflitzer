@@ -1565,11 +1565,12 @@ function seatGenericEnds(surf = terrainH) {
         gridAddSegment(BRIDGE_GRID, end[0], end[1], end[0] + ux * seat.reach, end[1] + uz * seat.reach, b.hw * 2, b); } } }
 }
 // #1196: a deck with swissTLM3D samples gets a height profile pinned to the surface it joins at each end: a switch end takes that
-// deck's surface, a road deck end `surf` at the end point (terrainH while laying out, roadTopH once the ribbons exist), a rail end the ground.
+// deck's surface, a road deck end `surf` at the end point (terrainH while laying out, roadTopH once the ribbons exist; a joint to another bridge piece keeps its end sample), a rail end the ground.
 // Hero chains (wood/stone, approaches) never carry samples. Without samples a deck is left as it was.
 function fillTlmDecks(decks, surf) {
   for (const b of decks) { if (!b.tlmSamples || b.kind === 'wood' || b.kind === 'stone' || b.approach) continue;
-    const p = b.r.pts, end = (k) => k ? p[p.length - 1] : p[0], at = (k) => { const sw = b.kind === 'rail' ? switchUnder(b, ...end(k)) : null; return sw ? bridgeSurfaceAt(sw.o, sw.t) : surf(...end(k)); };
+    const p = b.r.pts, end = (k) => k ? p[p.length - 1] : p[0], joint = (k) => b.kind === 'generic' && !roadsFrom(end(k), new Set()).length,   // joined only to another bridge piece: no bank road to meet, the ground below may be a gorge
+      at = (k) => { const sw = b.kind === 'rail' ? switchUnder(b, ...end(k)) : null; return sw ? bridgeSurfaceAt(sw.o, sw.t) : joint(k) ? b.tlmSamples[k ? b.tlmSamples.length - 1 : 0][1] : surf(...end(k)); };
     b.h0 = at(0); b.h1 = at(1); b.prof = tlmProfile(b.tlmSamples, b.len, b.h0, b.h1); b.tlm = true; }
 }
 function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); fillTlmDecks(OSM_BRIDGES, terrainH); buildStoneChain(); }
