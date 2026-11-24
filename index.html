@@ -330,11 +330,8 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #tStick{position:absolute;pointer-events:auto;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px));width:104px;height:104px;box-sizing:border-box;border-radius:50%;background:rgba(20,23,29,.25);border:2px solid var(--steel-l);touch-action:none;user-select:none;-webkit-user-select:none}
 #tStick i{position:absolute;left:28px;top:28px;width:44px;height:44px;border-radius:50%;background:var(--steel-l);pointer-events:none}
 #tG{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:calc(92px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
-#touch .round,#touch button#tH{width:44px;height:44px;font-size:18px}
+#touch button#tH{width:44px;height:44px;font-size:18px}
 #touch button#tH{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tJ{right:calc(72px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tZ{right:calc(124px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tC{left:calc(76px + env(safe-area-inset-left,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
 #touch button#tE{width:auto;min-width:96px;height:48px;border-radius:24px;padding:0 16px;font-size:18px;font-weight:800;letter-spacing:1px;background:var(--sun);color:var(--ink);left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(420px + env(safe-area-inset-bottom,0px))}
 #touch button#tMenu{width:48px;height:48px;border-radius:0;font-size:24px;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
 /* open, the list is what you are reading: it takes the whole left side and may cover the controls and the speedometer behind it */
@@ -344,8 +341,8 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #touch>:not(#tMenuList){transition:opacity .4s}
 #touch.faded>:not(#tMenuList){opacity:.3}
 #tMenuList button{position:static;width:100%;height:auto;min-height:44px;border-radius:0;font-size:16px;text-align:left;padding:6px 10px}
-#touch:not([data-ctx=car]) :is(#tB,#tH,#tC){display:none}   /* brake, handbrake and the camera are the car's; on foot Gas is the jump */
-#touch:is([data-ctx=heli],[data-ctx=train]) :is(#tStick,#tG,#tJ,#tC){display:none}   /* helicopter and loco: Z and the menu, dedicated controls are a follow-up */
+#touch:not([data-ctx=car]) :is(#tB,#tH){display:none}   /* brake and handbrake are the car's; on foot Gas is the jump */
+#touch:is([data-ctx=heli],[data-ctx=train]) :is(#tStick,#tG){display:none}   /* helicopter and loco: the menu (Z is in it, #1181), dedicated controls are a follow-up */
 #keybar{max-width:min(560px,calc(100vw - 32px));margin-bottom:6px;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;padding:5px 12px;box-sizing:border-box;background:rgba(20,23,29,.72);color:var(--cream);font-size:15px;font-weight:700;letter-spacing:1px;pointer-events:none;user-select:none}   /* #535: first row of #tc (top centre), so it moves down with the mirror and never meets the speedometer or the minimap */
 #keybar[hidden]{display:none}
 #keybar kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
@@ -646,9 +643,6 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <button id="tG" type="button" aria-label="Accelerate" data-i18n-aria="accelerate">▲</button>
   <button id="tB" type="button" aria-label="Brake" data-i18n-aria="brake">▼</button>
   <button id="tH" type="button" aria-label="Handbrake" data-i18n-aria="handbrake">H</button>
-  <button id="tZ" class="round" type="button" aria-label="get out" data-i18n-aria="barGetOut">Z</button>
-  <button id="tJ" class="round" type="button" aria-label="jump to" data-i18n-aria="barJumpTo">J</button>
-  <button id="tC" class="round" type="button" aria-label="camera" data-i18n-aria="barCamera">C</button>
   <button id="tE" type="button" hidden></button>
   <button id="tMenu" type="button" aria-label="All actions" data-i18n-aria="touchMenu" aria-expanded="false">☰</button>
   <div id="tMenuList" hidden></div>
@@ -4764,7 +4758,7 @@ const holdButton = (id, down, up) => { const el = document.getElementById(id); c
 holdButton('tG', () => { if (FOOT.on) keys.Space = true; else { touch.g = 1; stopAuto('off'); } }, () => { keys.Space = false; touch.g = 0; });   // on foot Gas is Jump
 holdButton('tB', () => { touch.b = 1; stopAuto('off'); }, () => { touch.b = 0; });
 holdButton('tH', () => { touch.h = 1; stopAuto('off'); }, () => { touch.h = 0; });
-for (const [id, cmd] of [['tZ', 'KeyZ'], ['tJ', 'KeyJ'], ['tC', 'KeyC'], ['tE', 'KeyE']]) document.getElementById(id).addEventListener('click', () => pressKey(cmd));
+for (const [id, cmd] of [['tE', 'KeyE']]) document.getElementById(id).addEventListener('click', () => pressKey(cmd));   // #1181: Z / J / C are rows of the ☰ menu, not buttons
 let lastTouchMs = performance.now();   // #1181: any pointerdown on the page lights the controls at once; touchFaded dims them after TOUCH_FADE.idleMs
 const lightTouch = () => { lastTouchMs = performance.now(); $('touch').classList.remove('faded'); };
 document.addEventListener('pointerdown', lightTouch, true);
@@ -4784,7 +4778,6 @@ function stepTouch(ctx, act) {
   $('touch').dataset.ctx = ctx;
   $('tE').hidden = !act; if (act) $('tE').textContent = tr(contextLabel(act));
   $('tG').textContent = FOOT.on ? '⤒' : '▲'; $('tG').setAttribute('aria-label', tr(FOOT.on ? 'barJumpUp' : 'accelerate'));
-  $('tZ').setAttribute('aria-label', tr(FOOT.on ? 'barGetIn' : 'barGetOut'));
 }
 window.__mm.touch = () => { stepTouch(controlContext(), contextAction()); return { ...touch, ctx: $('touch').dataset.ctx }; };   // steps first, like __mm.keybar: a headless renderer draws under 1 fps
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }

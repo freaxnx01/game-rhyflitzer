@@ -8,8 +8,8 @@ const MOVE = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft
 const SHIFT = ['ShiftLeft', 'ShiftRight'];
 const entry = (action, keys, o = {}) => ({ action, keys, hold: !!o.hold, core: !!o.core, touch: o.touch ?? null, label: o.label ?? null, cap: o.cap ?? null });
 const help = () => entry('help', ['F1'], { core: true, label: 'barAllKeys', cap: 'F1' });
-const jumpTo = () => entry('jump', ['KeyJ'], { core: true, touch: 'button', label: 'barJumpTo', cap: 'J' });
-const camera = () => entry('camera', ['KeyC'], { core: true, touch: 'button', label: 'barCamera', cap: 'C' });
+const jumpTo = () => entry('jump', ['KeyJ'], { core: true, touch: 'menu', label: 'barJumpTo', cap: 'J' });
+const camera = () => entry('camera', ['KeyC'], { core: true, touch: 'menu', label: 'barCamera', cap: 'C' });
 const menu = (action, keys, label) => entry(action, keys, { touch: 'menu', label });
 // #735: the car radio on the top-row digits 5-0, in every run context (the lift pad's floors take precedence while it is open)
 const radio = () => [
@@ -28,7 +28,7 @@ const camPath = () => [
 const CAR = [
   entry('drive', [...MOVE, 'Space'], { hold: true, core: true, touch: 'button', label: 'barDrive', cap: 'WASD' }),
   entry('nitro', ['KeyN'], { hold: true, core: true, label: 'barNitro', cap: 'N' }),
-  entry('getOut', ['KeyZ'], { core: true, touch: 'button', label: 'barGetOut', cap: 'Z' }),
+  entry('getOut', ['KeyZ'], { core: true, touch: 'menu', label: 'barGetOut', cap: 'Z' }),
   jumpTo(), camera(), help(),
   entry('handbrake', ['ControlLeft', 'ControlRight'], { hold: true, touch: 'button', label: 'keyHandbrake' }),
   entry('lookBack', ['KeyB'], { hold: true, label: 'keyLookBack' }),
@@ -45,7 +45,7 @@ const CAR = [
 const WALK = [
   entry('walk', MOVE, { hold: true, core: true, touch: 'button', label: 'barWalk', cap: 'WASD' }),
   entry('jumpUp', ['Space'], { hold: true, core: true, touch: 'button', label: 'barJumpUp', cap: 'Space' }),
-  entry('getIn', ['KeyZ'], { core: true, touch: 'button', label: 'barGetIn', cap: 'Z' }),
+  entry('getIn', ['KeyZ'], { core: true, touch: 'menu', label: 'barGetIn', cap: 'Z' }),
   jumpTo(), help(),
   entry('context', ['KeyE'], {}),
   entry('down', SHIFT, { hold: true }),
@@ -62,9 +62,9 @@ const TABLE = {
   indoors: WALK,
   heli: [entry('fly', MOVE, { hold: true, core: true, label: 'barFly', cap: 'WASD' }), entry('climb', ['Space'], { hold: true, core: true, label: 'barClimb', cap: 'Space' }),
     entry('sink', SHIFT, { hold: true, core: true, label: 'barSink', cap: 'Shift' }), entry('heliNitro', ['KeyN'], { hold: true }),
-    entry('land', ['KeyF'], { core: true, touch: 'menu', label: 'barLand', cap: 'F' }), ...radio(), ...camPath(), help()],   // the bar says how to land: a hint can put a new player in the air
+    entry('land', ['KeyF'], { core: true, touch: 'menu', label: 'barLand', cap: 'F' }), entry('leaveHeli', ['KeyZ'], { touch: 'menu', label: 'barGetOut' }), ...radio(), ...camPath(), help()],   // the bar says how to land: a hint can put a new player in the air
   train: [entry('steam', ['KeyW'], { hold: true, core: true, label: 'barSteam', cap: 'W' }), entry('trainBrake', ['KeyS'], { hold: true, core: true, label: 'barBrake', cap: 'S' }), menu('switchLeft', ['KeyQ'], 'menuSwitchLeft'), menu('switchRight', ['KeyE'], 'menuSwitchRight'),
-    menu('whistle', ['KeyH'], 'menuWhistle'), menu('trainReset', ['KeyR'], 'keyReset'), entry('trainCamera', ['KeyC'], {}), entry('turnLeft', ['KeyA'], {}), entry('turnRight', ['KeyD'], {}), entry('leaveTrain', ['KeyZ'], { core: true, touch: 'button', label: 'barGetOut', cap: 'Z' }), ...radio(), ...camPath(), help()],
+    menu('whistle', ['KeyH'], 'menuWhistle'), menu('trainReset', ['KeyR'], 'keyReset'), entry('trainCamera', ['KeyC'], {}), entry('turnLeft', ['KeyA'], {}), entry('turnRight', ['KeyD'], {}), entry('leaveTrain', ['KeyZ'], { core: true, touch: 'menu', label: 'barGetOut', cap: 'Z' }), ...radio(), ...camPath(), help()],
   lift: [entry('floor', ['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'], {}), entry('roof', ['KeyD'], {}), entry('context', ['KeyE'], {}), help()],
 };
 
