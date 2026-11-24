@@ -73,6 +73,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-24 16:28` Im **Mehrspieler-Rennen** meldet ein Gast, dessen **Zieleinlauf** der Gastgeber abgelehnt hat, nicht mehr dauernd neu: Erst nach dem Hinausfahren aus dem Ziel zählt die nächste Einfahrt.
 - `2026-11-23 09:13` Im **Mehrspieler** steht das Auto des anderen Spielers nicht mehr **quer**: Nach mehr als einer halben Drehung kam seine Fahrtrichtung bisher falsch an, auch beim Zusammenstossen.
 - `2026-11-21 00:47` Gemeinsam fahren: Im **Hübel** (Lift, Tunnelring, Räume) bleibt das Auto des anderen Spielers jetzt **sichtbar**, statt bis zur Rückkehr an die Oberfläche verschwunden zu sein. Ruckelt das Spiel eines Spielers kurz (etwa beim ersten Mal im Lift), taucht das andere Auto gleich danach wieder auf, statt noch Sekunden **eingefroren** zu bleiben.
 - `2026-11-21 00:19` In einem **Mehrspieler-Rennen** verschwinden die **Checkpoints** und der **Pfeil**, sobald Du im Ziel bist.

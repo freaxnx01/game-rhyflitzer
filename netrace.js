@@ -130,6 +130,10 @@ export function tickRace(race, now) {
 // nearPoint(poses, pt) — the host found a buffered pose (last second) within radius + slack of the point (x/z only).
 export function nearPoint(poses, pt) { return poses.some((q) => Math.hypot(q.x - pt.x, q.z - pt.z) <= RACE.radius + RACE.slack); }
 
+// #1169: after a refused finish the gate stays shut for this car until it has left the finish radius once,
+// otherwise a guest parked in the gate asks the host again on every step.
+export function finishHeld(held, dist) { return held && dist < RACE.radius; }
+
 // standings(rows) — the pure ranking every device applies to the same board rows, so the order is identical
 // everywhere: 1) finished by finish time, 2) running by more passes then earlier last pass, 3) DNF by more
 // passes. A tie goes to the lower id. Each row gains pos (1-based) and gap; the leader shows -second's gap.
