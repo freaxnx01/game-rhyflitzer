@@ -10,7 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
-- `2026-11-24 16:20` The pause menu in a multiplayer race no longer offers **Restart race**.
+- `2026-11-24 16:20` Im **Mehrspieler-Rennen** bietet das **Pausenmenü** kein «Rennen neu starten» mehr an: Ein Neustart würde den gemeinsamen Start verlassen.
 - `2026-11-23 16:35` Ein angeklickter **Einladungslink** tritt jetzt im schon offenen **Tab** bei; der neue Tab sagt nur «Im anderen Tab beigetreten».
 
 ### Added
