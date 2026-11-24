@@ -146,7 +146,8 @@ export function layoutFromWorld(w) {
            rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], eraFields: w.era?.fields || [], eraHouses: w.era?.houses || [], busRoutes: w.busRoutes || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
-export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
+// #1196: a bridge carrying a measured height profile (b.prof, swissTLM3D) reads its surface from it; the deck line sits DECK_OFFSET below
+export function bridgeDeckAt(b, t) { if (b.prof) return profileY(b.prof, t) - DECK_OFFSET; const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
 // Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends; an end
 // flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
 // #227: an end seated on its bank (seat0/seat1) carries its deck line DECK_OFFSET below the bank top, so the surface meets the bank
@@ -154,7 +155,7 @@ export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.le
 // ramp meets the level bank threw the car off the Sägeweg bridge.
 export const DECK_OFFSET = 0.3;
 export function bridgeDeckOffset(b, t) { const a = b.fade0 === false || b.seat0 ? Infinity : t, e = b.fade1 === false || b.seat1 ? Infinity : b.len - t; return DECK_OFFSET * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
-export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
+export function bridgeSurfaceAt(b, t) { return b.prof ? profileY(b.prof, t) : bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
 
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
 // the cut ramps out along the road at `grade`, never deeper than `maxDepth`. #119: `wall` m thick stone walls retain the
@@ -253,6 +254,33 @@ export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidt
 
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
 // u.grade until it meets the ground. The road ribbon lies u.lift above the floor.
+// #1196: heights measured by swissTLM3D. A deck profile [t, y] is pinned to the bank heights at both ends and keeps the measured samples
+// from `B` m inward, mixing linearly toward the pin in between; gaps between samples interpolate linearly (profileY).
+export const TLM_RAIL_TOP = 0.3, TLM_CLEAR_MIN = 3.0, TLM_FINE = { inner: 16, outer: 28, r: 4 }, TLM_UNDER_REACH = 8;
+export function tlmProfile(samples, len, y0, y1) {
+  const raw = samples.map(([t, y]) => [t, y]).filter(([t]) => t > 0 && t < len).sort((a, b) => a[0] - b[0]);
+  if (!raw.length) return [[0, y0], [len, y1]];
+  const B = Math.min(8, len / 4), at = (t) => profileY(raw, t);
+  for (const t of [B, len - B]) if (!raw.some((p) => p[0] === t)) raw.push([t, at(t)]);
+  raw.sort((a, b) => a[0] - b[0]);
+  const mixed = raw.map(([t, y]) => {
+    const w = t < B ? 1 - t / B : t > len - B ? 1 - (len - t) / B : 0;
+    return [t, w ? y + ((t < B ? y0 : y1) - y) * w : y];
+  });
+  return [[0, y0], ...mixed, [len, y1]];
+}
+// the y of the nearest road point of `under` [x, z, y, kind] within TLM_UNDER_REACH of (x, z); a rail line below never counts
+export function tlmUnderAt(under, x, z) {
+  let best = null, bd = TLM_UNDER_REACH;
+  for (const [ux, uz, uy, kind] of under) {
+    if (kind !== 'road') continue;
+    const d = Math.hypot(ux - x, uz - z);
+    if (d <= bd) { bd = d; best = uy; }
+  }
+  return best;
+}
+// the cut floor under a deck: the measured road y yU, but at least TLM_CLEAR_MIN under the deck's underside, never deeper than maxDepth
+export function tlmFloorTarget(surface, yU, ground, u = UNDERPASS) { return Math.max(Math.min(yU, surface - u.deck - TLM_CLEAR_MIN) - u.lift, ground - u.maxDepth); }
 export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
 // #120: the points the network cannot descend through (dead ends, bridge joins, arms out of budget) keep their ground:
 // f0 >= ground - rise, rise = how far the floor climbs from the crossing to that point along the network
@@ -487,10 +515,15 @@ export function patchCells([bx0, bz0, bx1, bz1], G) {
 // stands on, the roads draped there and the ground the car drives on do not depend on where the coarse 16 m mesh rows fall.
 // Full weight up to `inner` from a bank, blended back to the coarse mesh by `outer`, where the patches meet it without a crack.
 export const FINE_BANK = { inner: 48, outer: 72 };
-export function fineWeight(x, z, centres, { inner, outer } = FINE_BANK) {
-  let d = Infinity; for (const [cx, cz] of centres) d = Math.min(d, Math.hypot(x - cx, z - cz));
-  const t = Math.max(0, Math.min(1, (d - inner) / (outer - inner)));
-  return 1 - t * t * (3 - 2 * t);
+// #1196: a centre is [x, z] (radii from `opts`) or { x, z, inner, outer } with its own radii; the heaviest centre wins
+export function fineWeight(x, z, centres, opts = FINE_BANK) {
+  let w = 0;
+  for (const c of centres) {
+    const cx = c.x ?? c[0], cz = c.z ?? c[1], { inner, outer } = c.x === undefined ? opts : c;
+    const t = Math.max(0, Math.min(1, (Math.hypot(x - cx, z - cz) - inner) / (outer - inner)));
+    w = Math.max(w, 1 - t * t * (3 - 2 * t));
+  }
+  return w;
 }
 // the cells with any point closer than `outer` to a bank: every edge they share with an unpatched cell lies at outer or beyond
 export function fineCells(centres, G, outer = FINE_BANK.outer) {
