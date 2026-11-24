@@ -28,6 +28,18 @@ export function hearGain(d) {
   return (1 - t) * (1 - t);
 }
 
+// ---- #1179: the host's own gate on a relayed knock ----
+export const KNOCK_GAP_MS = 60;   // the same gap netSendKnock keeps per sound
+// knockAllowed(seen, slot, sound, now) — true (and records now) if this slot's knock of this sound is at least KNOCK_GAP_MS after
+// the last accepted one. `seen` is the caller's plain object; a refused knock is not recorded.
+export function knockAllowed(seen, slot, sound, now) {
+  if (!Number.isFinite(now)) return false;
+  const key = slot + ':' + sound;
+  if (now - (seen[key] ?? -Infinity) < KNOCK_GAP_MS) return false;
+  seen[key] = now;
+  return true;
+}
+
 // ---- clock ----
 // addClockSample(samples, a, b, c) — one ping/pong round: a = send time, b = host clock, c = receive time (guest ms).
 // Returns a new array holding the last CLOCK_N offsets; never mutates the one it is given. A round trip longer than
