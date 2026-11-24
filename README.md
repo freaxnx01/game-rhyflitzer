@@ -50,6 +50,16 @@ systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 python scripts/
 
 Retake single motifs (the GPU browser is unstable; a failed motif is reported with the exact retake command): `python scripts/shots.py --only dsm-sisseln holzbruecke-aussen`. List the motifs with `--list`. After a run, `python scripts/shots.py --readme` rewrites the thumbnails above from `shots.json`. Set `PW_CDP_ENDPOINT` to use the GPU browser, otherwise a local SwiftShader Chromium is used (slow). The same list is the shot list for the video takes. Needs Playwright (`pip install playwright && playwright install chromium`).
 
+**Player worlds: Dornach.** Taken in a world built with the region editor, by hand and with the HUD on, so they are not part of `shots.json`:
+
+<p>
+  <a href="docs/gallery/community/dornach-hochwald-auto.jpg"><img src="docs/gallery/community/dornach-hochwald-auto.jpg" width="32%" alt="Rhyflitzer – Map Madness: Dornach, the car on a wooded ridge towards Hochwald"></a>
+  <a href="docs/gallery/community/dornach-aussicht-aesch.jpg"><img src="docs/gallery/community/dornach-aussicht-aesch.jpg" width="32%" alt="Rhyflitzer – Map Madness: Dornach, the view down to Aesch BL and Dornach"></a>
+  <a href="docs/gallery/community/dornach-hochwald-tal.jpg"><img src="docs/gallery/community/dornach-hochwald-tal.jpg" width="32%" alt="Rhyflitzer – Map Madness: Dornach, forested hills and the valley towards Hochwald"></a>
+  <a href="docs/gallery/community/dornach-feldweg.jpg"><img src="docs/gallery/community/dornach-feldweg.jpg" width="32%" alt="Rhyflitzer – Map Madness: Dornach, a field track over the hill at dusk"></a>
+  <a href="docs/gallery/community/dornach-abendsonne.jpg"><img src="docs/gallery/community/dornach-abendsonne.jpg" width="32%" alt="Rhyflitzer – Map Madness: Dornach, the evening sun over the meadows"></a>
+</p>
+
 **Videos:** [YouTube playlist „Rhyflitzer – Map Madness"](https://www.youtube.com/playlist?list=PLZK1QeqP1C2E)
 
 ## Status
