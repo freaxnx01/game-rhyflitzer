@@ -1048,7 +1048,7 @@ import { offerJoin, listenForJoin } from './joinhandoff.js';   // #1111: an invi
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
-import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); netClockOffset: ferrisride.js already owns `clockOffset`
+import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps, knockAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); netClockOffset: ferrisride.js already owns `clockOffset`
 import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, BUMP_DY, HIT_WINDOW } from './netbump.js';   // #836: car-to-car contact in a shared drive
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
@@ -6979,7 +6979,7 @@ function netHostMessage(peerId, msg) {
   if (id === undefined) return;                          // nothing a peer sends counts before its hello
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
-  if (msg.type === 'knock') { netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, { type: 'knock', s: msg.s, l: msg.l, id }); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose)
+  if (msg.type === 'knock') { if (!knockAllowed(knockSeen, id, msg.s, performance.now())) { NET.bad++; return; } netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, { type: 'knock', s: msg.s, l: msg.l, id }); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose); #1179: the host's own per-slot, per-sound gate drops a flood before it is played or relayed
   if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
   if (msg.type === 'finish') { if (NET.race?.state && NET.race.go) netHostFinish(id, raceMs(), peerId); return; }   // #837 part d: the finish is stamped from the host's clock too
   if (msg.type === 'pick') {
@@ -7275,7 +7275,7 @@ function netStartSession(mode = 'cruise', t0 = null) {
 function netEndSession() {
   clearInterval(NET.poseTimer);
   for (const id of [...NETCARS.keys()]) dropNetCar(id);
-  knockSentAt = {};   // #1112: a fresh session does not inherit the last drive's knock gates
+  knockSentAt = {}; knockSeen = {};   // #1112/#1179: a fresh session does not inherit the last drive's knock gates
   BUMP.gate.clear(); BUMP.seen.clear(); BUMP.local.clear(); BUMP.inbox.length = 0; BUMP.out.length = 0;   // #836: a fresh session does not inherit the last drive's cooldowns or hits
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; document.body.classList.remove('mpdone'); $('pauserestart').hidden = false;
@@ -7435,6 +7435,7 @@ function netHearKnock(id, s, l) { const g = netGainTo(id); if (g < 0.02) return;
 // one reliable message per knocked prop, gated per sound so a pile of bins is not a burst of repeats; the id is
 // stamped by the host, never taken from a guest's message
 let knockSentAt = {};
+let knockSeen = {};   // #1179: the host's per-slot, per-sound knock gate
 function netSendKnock(s, l) {
   if (!NET.session || !NET.link) return;
   const now = performance.now(); if (now - (knockSentAt[s] ?? -1e9) < 60) return; knockSentAt[s] = now;
