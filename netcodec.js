@@ -2,7 +2,9 @@
 // Pure module: no DOM, no three.js, no RTCPeerConnection, so node --test can import it. index.html and netlink.js wire it up.
 // Nothing here ever throws and nothing is ever eval'd: a bad code or a bad message comes back as a named error or null.
 
-export const CODE_VERSION = 1;      // the R<version> prefix: a code from another game version is refused, not misread
+import { KNOCK_SOUNDS } from './knock.js';   // #1112: the sounds a knock message may carry (knock.js is pure too)
+
+export const CODE_VERSION = 2;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix)
 export const CODE_TTL = 600;        // seconds a code stays valid (10 minutes, shown as a countdown)
 export const CODE_SKEW = 60;        // seconds a code may lie in the future before it reads as expired (clock skew between devices)
 export const CODE_MAX = 16000;      // characters: a longer code is refused unread
@@ -46,7 +48,7 @@ export function encodePose(p) {
   v.setInt16(26, scaledInt16(p.vx, V_SCALE), true);
   v.setInt16(28, scaledInt16(p.vz, V_SCALE), true);
   v.setInt16(30, scaledInt16(wrapAngle(p.steer), ROT_SCALE), true);
-  v.setUint8(32, p.flags & 0x3f);   // bits 6–7 are reserved and must stay 0, also in what we send
+  v.setUint8(32, p.flags & 0x7f);   // bit 7 is reserved and must stay 0, also in what we send (bit 6 is the horn, #1112)
   // bytes 33–35: #836 part b hit relay — byte 33 = to (bits 0–1) | present (bit 2) | n (bits 3–7); bytes 34–35 = closing speed in cm/s
   if (p.hit) {
     v.setUint8(33, (p.hit.to & 3) | HIT_PRESENT | ((p.hit.n & 31) << 3));
@@ -62,6 +64,7 @@ export function encodePose(p) {
 // arrived from, so a guest could stuff another player's id into a relayed record. Whoever consumes poses (#835 parts
 // b/c) must take the player from netlink's peerId (onPose) and drop a record whose id disagrees with it — anything
 // else lets a guest steer another player's car.
+// #1112: bit 6 of the flags is the horn bit and accepted; bit 7 stays reserved and refused.
 export function parsePose(buf) {
   if (!(buf instanceof ArrayBuffer) || buf.byteLength !== POSE_BYTES) return null;
   const v = new DataView(buf);
@@ -74,7 +77,7 @@ export function parsePose(buf) {
   const vx = v.getInt16(26, true) / V_SCALE, vz = v.getInt16(28, true) / V_SCALE;
   if (Math.hypot(vx, vz) > V_MAX) return null;
   const flags = v.getUint8(32);
-  if (flags & 0xc0) return null;
+  if (flags & 0x80) return null;
   const hb = v.getUint8(33), hc = v.getUint16(34, true);
   let hit = null;
   if (hb & HIT_PRESENT) { hit = { to: hb & 3, n: hb >> 3, c: hc / V_SCALE }; if (hit.c > HIT_C_MAX) return null; }
@@ -201,13 +204,15 @@ function parseStart(m) {
   return finite(m.t0) && finite(m.now) ? { type: 'start', mode: 'race', t0: m.t0, now: m.now } : null;
 }
 
-// parseRow — one row of a board: id 0..3, a clean name, st ∈ run/fin/dnf, ≤ 17 finite non-decreasing times.
+// parseRow — one row of a board: id 0..3, a clean name, st ∈ run/fin/dnf, ≤ 17 finite non-decreasing times,
+// an optional integer mask in 0 .. 2^CP_MAX - 1 (which checkpoints were passed, #1119).
 function parseRow(r) {
   if (!r || typeof r !== 'object' || !Number.isInteger(r.id) || r.id < 0 || r.id >= MAX_PLAYERS) return null;
   const name = cleanName(r.name);
   if (!name || !ST.includes(r.st) || !Array.isArray(r.times) || r.times.length > TIMES_MAX) return null;
   if (!r.times.every((t, k) => raceTime(t) && (k === 0 || t >= r.times[k - 1]))) return null;
-  return { id: r.id, name, times: [...r.times], st: r.st };
+  if (r.mask !== undefined && (!Number.isInteger(r.mask) || r.mask < 0 || r.mask >= (1 << CP_MAX))) return null;
+  return r.mask === undefined ? { id: r.id, name, times: [...r.times], st: r.st } : { id: r.id, name, times: [...r.times], st: r.st, mask: r.mask };
 }
 
 // parseBoard — over is a boolean; rows 1..4, each a clean row, ids unique. The host is the only sender.
@@ -233,6 +238,8 @@ const VALIDATORS = {
   cpno: (m) => (cpIndex(m.i, -1) ? { type: 'cpno', i: m.i } : null),
   board: parseBoard,
   back: () => ({ type: 'back' }),
+  // #1112: one knocked-over prop. s = a primary knock sound, l = its level 0..1; id is stamped by the relaying host only.
+  knock: (m) => (KNOCK_SOUNDS.includes(m.s) && finite(m.l) && m.l >= 0 && m.l <= 1 && (m.id === undefined || (Number.isInteger(m.id) && m.id >= 0 && m.id < MAX_PLAYERS)) ? (m.id === undefined ? { type: 'knock', s: m.s, l: m.l } : { type: 'knock', s: m.s, l: m.l, id: m.id }) : null),
 };
 
 function parsePlayer(raw, ctx) {

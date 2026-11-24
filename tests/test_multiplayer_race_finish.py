@@ -43,3 +43,22 @@ def test_a_refused_finish_brings_markers_and_arrow_back(pair):
     assert back["finishVisible"] is True
     assert all(back["cpVisible"])
     assert errors == []
+
+
+def test_a_refused_finish_is_asked_once_while_parked_in_the_gate(pair):
+    """#1169: after a refusal the guest still stands in the gate; it must not re-finish (and get refused) every step."""
+    host, guest, errors = pair
+    start_race(host, guest)
+    cps = guest.evaluate(NET_RACE)["cps"]
+    for i in range(len(cps)):
+        guest.evaluate("(i) => window.__mm.netMarkCpDone(i)", i)
+    fx, fz = guest.evaluate(NET_RACE)["finish"]
+    guest.evaluate("([x, z]) => window.__mm.place(x, z, 0)", [fx, fz])
+    guest.wait_for_function("() => window.__mm.netRace().cpno >= 1", timeout=T)
+    guest.wait_for_timeout(3000)   # before the fix: ~18 refusals per second here
+    back = guest.evaluate(NET_RACE)
+    assert back["cpno"] == 1
+    assert back["state"] == "racing"
+    assert back["finishVisible"] is True and back["arrowShown"] is True
+    assert all(back["cpVisible"])
+    assert errors == []

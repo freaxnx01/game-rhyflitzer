@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createTracker, pageUrl, pageviewProps, createChangeReporter, roundSeconds, regionId, vehicleSource, vehicleData,
-  activityOf, activityData, modeData, modeEndData, jumpData, MAX_TEXT, campaignSource,
+  activityOf, activityData, modeData, modeEndData, jumpData, MAX_TEXT, campaignSource, hideoutData, createOnceReporter,
 } from '../analytics.js';
 
 const MODES = ['trial', 'blitz', 'hunt'];
@@ -186,4 +186,34 @@ test('campaignSource: utm_source only, trimmed and capped, empty without one', (
 test('vehicleSource: ?vehicle=compact is not a query once compact is not selectable (#830)', () => {
   assert.equal(vehicleSource('?vehicle=compact', null, ['hatchback', 'mini']), 'default');
   assert.equal(vehicleSource('?vehicle=compact', '{"id":"compact"}', ['hatchback', 'mini']), 'stored');
+});
+
+// #1171: Hübel ring and room visits
+const RINGS = [
+  { id: 'ring', rooms: [{ id: 'eiffel', name: 'La Tour Eiffel' }, { id: 'room2', name: null }] },
+  { id: 'ring2', rooms: [{ id: 'r2room3', name: null }] },
+];
+
+test('hideoutData: surface and unknown levels are nothing, rings and rooms carry their ring number', () => {
+  assert.equal(hideoutData('surface', RINGS), null);
+  assert.equal(hideoutData('nowhere', RINGS), null);
+  assert.deepEqual(hideoutData('ring', RINGS), { ring: 1 });
+  assert.deepEqual(hideoutData('ring2', RINGS), { ring: 2 });
+  assert.deepEqual(hideoutData('eiffel', RINGS), { ring: 1, room: 'La Tour Eiffel' });
+  assert.deepEqual(hideoutData('r2room3', RINGS), { ring: 2, room: 'r2room3' });
+});
+
+test('once reporter: ring, room, ring, same room sends each ring and room once, in order', () => {
+  const sent = [], once = createOnceReporter({ send: (...a) => sent.push(a) });
+  for (const id of ['surface', 'ring', 'eiffel', 'ring', 'eiffel', 'ring2', 'r2room3', 'r2room3']) once.see(id, RINGS);
+  assert.deepEqual(sent, [
+    ['hideout-ring', { ring: 1 }], ['hideout-room', { ring: 1, room: 'La Tour Eiffel' }],
+    ['hideout-ring', { ring: 2 }], ['hideout-room', { ring: 2, room: 'r2room3' }],
+  ]);
+});
+
+test('once reporter: a room seen before its ring was sampled counts the ring first', () => {
+  const sent = [], once = createOnceReporter({ send: (...a) => sent.push(a) });
+  once.see('eiffel', RINGS);
+  assert.deepEqual(sent, [['hideout-ring', { ring: 1 }], ['hideout-room', { ring: 1, room: 'La Tour Eiffel' }]]);
 });

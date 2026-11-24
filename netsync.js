@@ -15,8 +15,30 @@ export const FADE = 1000;        // ms: a leaving player's car fades out over th
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// The pose record's flag bits, shared by part b's encoder and part c's lamps.
-export const FLAG = { visible: 1, head: 2, brake: 4, left: 8, right: 16, nitro: 32 };
+// The pose record's flag bits, shared by part b's encoder and part c's lamps. #1112: bit 6 is the horn.
+export const FLAG = { visible: 1, head: 2, brake: 4, left: 8, right: 16, nitro: 32, horn: 64 };
+
+// ---- #1112: hearing the other player ----
+export const HEAR_NEAR = 12;       // m: a remote sound is at full volume up to here
+export const HEAR_FAR = 160;      // m: a remote sound is silent from here on
+// hearGain(d) — the volume of a sound this far away: 1 up to HEAR_NEAR, 0 past HEAR_FAR, quadratic in between. A query: pure.
+export function hearGain(d) {
+  if (!Number.isFinite(d)) return 0;
+  const t = clamp((d - HEAR_NEAR) / (HEAR_FAR - HEAR_NEAR), 0, 1);
+  return (1 - t) * (1 - t);
+}
+
+// ---- #1179: the host's own gate on a relayed knock ----
+export const KNOCK_GAP_MS = 60;   // the same gap netSendKnock keeps per sound
+// knockAllowed(seen, slot, sound, now) — true (and records now) if this slot's knock of this sound is at least KNOCK_GAP_MS after
+// the last accepted one. `seen` is the caller's plain object; a refused knock is not recorded.
+export function knockAllowed(seen, slot, sound, now) {
+  if (!Number.isFinite(now)) return false;
+  const key = slot + ':' + sound;
+  if (now - (seen[key] ?? -Infinity) < KNOCK_GAP_MS) return false;
+  seen[key] = now;
+  return true;
+}
 
 // ---- clock ----
 // addClockSample(samples, a, b, c) — one ping/pong round: a = send time, b = host clock, c = receive time (guest ms).

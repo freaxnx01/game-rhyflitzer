@@ -130,6 +130,10 @@ export function tickRace(race, now) {
 // nearPoint(poses, pt) — the host found a buffered pose (last second) within radius + slack of the point (x/z only).
 export function nearPoint(poses, pt) { return poses.some((q) => Math.hypot(q.x - pt.x, q.z - pt.z) <= RACE.radius + RACE.slack); }
 
+// #1169: after a refused finish the gate stays shut for this car until it has left the finish radius once,
+// otherwise a guest parked in the gate asks the host again on every step.
+export function finishHeld(held, dist) { return held && dist < RACE.radius; }
+
 // standings(rows) — the pure ranking every device applies to the same board rows, so the order is identical
 // everywhere: 1) finished by finish time, 2) running by more passes then earlier last pass, 3) DNF by more
 // passes. A tie goes to the lower id. Each row gains pos (1-based) and gap; the leader shows -second's gap.
@@ -149,8 +153,35 @@ export function standings(rows) {
   return s;
 }
 
-// boardRows(race) — the rows of a `board` message: id, name, times, st (mask is host-internal and dropped).
-export function boardRows(race) { return race.racers.map(({ id, name, times, st }) => ({ id, name, times, st })); }
+// nextCheckpoint(mask, cps, pos) — index of the nearest checkpoint the racer has not passed (any order), or -1 when all are passed.
+export function nextCheckpoint(mask, cps, pos) {
+  let best = -1, bestD = Infinity;
+  cps.forEach((c, i) => {
+    if (mask & (1 << i)) return;
+    const d = Math.hypot(c.x - pos.x, c.z - pos.z);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+
+// opponentRows(rows, you, cps, finish, posOf) — one entry per opponent for the HUD list (#1119): done/total checkpoints and the
+// straight-line metres to the next target (the nearest open checkpoint, the finish once all are passed). dist is null for a racer
+// who is not running or whose pose is unknown. posOf(id) returns { x, z } or null.
+export function opponentRows(rows, you, cps, finish, posOf) {
+  return [...rows].filter((r) => r.id !== you).sort((a, b) => a.id - b.id).map((r) => {
+    const mask = r.mask ?? 0, pos = r.st === 'run' ? posOf(r.id) : null;
+    const done = cps.filter((_, i) => mask & (1 << i)).length;
+    let dist = null;
+    if (pos) {
+      const i = nextCheckpoint(mask, cps, pos), target = i < 0 ? finish : cps[i];
+      dist = Math.round(Math.hypot(target.x - pos.x, target.z - pos.z));
+    }
+    return { id: r.id, name: r.name, st: r.st, done, total: cps.length, dist };
+  });
+}
+
+// boardRows(race) — the rows of a `board` message: id, name, times, st, mask (which checkpoints were passed, for the opponent list #1119).
+export function boardRows(race) { return race.racers.map(({ id, name, times, st, mask }) => ({ id, name, times, st, mask })); }
 
 // #1115: while a network race runs (countdown included, until the board says over) taking off, walking and the loco are locked
 export function raceLocksSwitch(race) { return !!race && !race.over; }

@@ -1,13 +1,13 @@
 // #834: connection codes and lobby messages. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash } from '../netcodec.js';
+import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash, CP_MAX } from '../netcodec.js';
 
 const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.repeat(8);
 
 test('encodeCode_hostOffer_roundTripsWithRegion', async () => {
   const c = await encodeCode('H', SDP, 'hochrhein', 1000);
-  assert.match(c, /^R1H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
+  assert.match(c, /^R2H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
   assert.deepEqual(await decodeCode(c, 'H', 1010), { ok: true, t: 1000, g: 'hochrhein', sdp: SDP });
 });
 
@@ -24,14 +24,14 @@ test('encodeCode_noDeflateStream_null', async () => {
 test('decodeCode_wrongRoleVersionOrAge_namedError', async () => {
   const g = await encodeCode('G', SDP, null, 1000), h = await encodeCode('H', SDP, 'hochrhein', 1000);
   assert.equal((await decodeCode(g, 'H', 1000)).error, 'role'); assert.equal((await decodeCode(g, 'G', 1000)).ok, true);
-  assert.equal((await decodeCode(h.replace(/^R1/, 'R2'), 'H', 1000)).error, 'version');
+  assert.equal((await decodeCode(h.replace(/^R2/, 'R3'), 'H', 1000)).error, 'version');
   assert.equal(CODE_TTL, 600);
   assert.equal((await decodeCode(h, 'H', 1601)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 939)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 1600)).ok, true);
 });
 
 test('decodeCode_garbageOrHuge_formatOrSize', async () => {
-  for (const g of ['', 'hello', 'R1H.', 'R1H.!!!!', 'R1H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
-  assert.equal((await decodeCode('R1H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
+  for (const g of ['', 'hello', 'R2H.', 'R2H.!!!!', 'R2H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
+  assert.equal((await decodeCode('R2H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
 });
 
 const CTX = { carIds: new Set(['compact', 'bus']), paintIds: new Set(['navy', 'signal']), regions: new Set(['hochrhein', 'ehrendingen']) };
@@ -102,7 +102,13 @@ test('parsePose_badRecords_null', () => {
   assert.equal(parsePose(bad((v) => v.setFloat32(16, 60000, true))), null);   // |z| > 50 km
   assert.equal(parsePose(bad((v) => v.setFloat32(12, -2000, true))), null);   // y below -1000
   assert.equal(parsePose(bad((v) => v.setInt16(26, 20000, true))), null);     // vx 200 m/s
-  assert.equal(parsePose(bad((v) => v.setUint8(32, 0b1000000))), null);       // reserved flag bit
+  assert.equal(parsePose(bad((v) => v.setUint8(32, 0b10000000))), null);       // reserved flag bit (7)
+});
+
+test('encodePose_hornBit_roundTrips', () => {
+  const p = parsePose(encodePose({ ...POSE, flags: 1 | 64 }));
+  assert.equal(p.flags, 65);
+  assert.equal(new DataView(encodePose({ ...POSE, flags: 0xff })).getUint8(32), 0x7f);   // bit 7 is still never sent
 });
 
 test('parseMessage_pingPongStart_validated', () => {
@@ -113,14 +119,22 @@ test('parseMessage_pingPongStart_validated', () => {
     assert.equal(parseMessage(m, CTX), null, m);
 });
 
+test('parseMessage_knock_validated', () => {
+  assert.deepEqual(parseMessage('{"type":"knock","s":"glass","l":0.6}', CTX), { type: 'knock', s: 'glass', l: 0.6 });
+  assert.deepEqual(parseMessage('{"type":"knock","s":"lamp","l":1,"id":2}', CTX), { type: 'knock', s: 'lamp', l: 1, id: 2 });
+  for (const m of ['{"type":"knock","s":"boom","l":0.5}', '{"type":"knock","s":"glass","l":2}', '{"type":"knock","s":"glass"}',
+    '{"type":"knock","s":"glass","l":0.5,"id":4}', '{"type":"knock","s":"glass","l":0.5,"id":"1"}', '{"type":"knock","l":0.5}'])
+    assert.equal(parseMessage(m, CTX), null, m);
+});
+
 test('joinLinkFor_readJoinHash_roundTrip', () => {
-  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R1H.abc-_XYZ');
-  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R1H.abc-_XYZ');
-  assert.equal(readJoinHash(new URL(link).hash), 'R1H.abc-_XYZ');
+  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R2H.abc-_XYZ');
+  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R2H.abc-_XYZ');
+  assert.equal(readJoinHash(new URL(link).hash), 'R2H.abc-_XYZ');
 });
 
 test('readJoinHash_noJoinOrEmpty_null', () => {
-  for (const h of ['', '#', '#join=', '#join=   ', '#other=R1H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
+  for (const h of ['', '#', '#join=', '#join=   ', '#other=R2H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
 });
 
 // #837 part a: the race messages — start race (t0, now), cp, finish, cpno, back, and the board.
@@ -140,4 +154,10 @@ test('parseMessage_board', () => {
     assert.equal(P({ type: 'board', over: false, rows: [bad] }), null);
   assert.equal(P({ type: 'board', over: false, rows: [row, row] }), null);   // duplicate id
   assert.equal(P({ type: 'board', over: 1, rows: [row] }), null);
+});
+test('parseMessage_boardMask', () => {
+  const row = { id: 0, name: 'A', times: [100], st: 'run', mask: 5 };
+  assert.deepEqual(P({ type: 'board', over: false, rows: [row] }), { type: 'board', over: false, rows: [row] });
+  for (const bad of [-1, 1.5, 1 << CP_MAX, 'x', null])
+    assert.equal(P({ type: 'board', over: false, rows: [{ ...row, mask: bad }] }), null);
 });

@@ -8,8 +8,16 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-11-24 16:20` Im **Mehrspieler-Rennen** bietet das **Pausenmenü** kein «Rennen neu starten» mehr an: Ein Neustart würde den gemeinsamen Start verlassen.
+- `2026-11-23 16:35` Ein angeklickter **Einladungslink** tritt jetzt im schon offenen **Tab** bei; der neue Tab sagt nur «Im anderen Tab beigetreten».
+
 ### Added
 
+- `2026-11-23 21:12` Du hörst jetzt die **Hupe** des anderen Spielers und die Objekte, die er **umfährt**, wenn er in der Nähe ist — leiser, je weiter er weg ist.
+- `2026-11-23 14:54` Im **Mehrspieler** wechselt der Gastgeber den **Spielmodus**, ohne dass jemand neu verbinden muss: Pause → **Modus wechseln (Lobby)** bringt alle in die Lobby, dort startet er **Gemeinsam losfahren** oder **Rennen starten**.
+- `2026-11-23 14:19` Im **Mehrspieler-Rennen** listet das HUD unter der eigenen Position jeden **Gegner** auf: wie viele **Checkpoints** er schon passiert hat und wie viele Meter bis zum nächsten — auch wenn er ausser Sicht fährt.
 - `2026-11-23 11:26` Im **Mehrspieler-Rennen** bleiben **Helikopter**, **Lok** und **zu Fuss** gesperrt: Von der Startaufstellung bis zum Rennende zeigt <kbd>F</kbd> oder <kbd>Z</kbd> nur noch "Im Rennen nicht möglich". Beim gemeinsamen Herumfahren geht weiterhin alles.
 - `2026-11-23 11:02` **Felbi** steht jetzt unter **Über Rhyflitzer → Leute**, als **Hinweisgeber** für Brücken und Unterführungen, die nicht der Wirklichkeit entsprachen.
 - `2026-11-22 21:59` In **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) stehen in **Sisseln** wieder die Häuser, die es heute nicht mehr gibt: nachgezeichnet nach dem Luftbild von 1946 und der **Siegfriedkarte**.
@@ -65,8 +73,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-24 16:28` Im **Mehrspieler-Rennen** meldet ein Gast, dessen **Zieleinlauf** der Gastgeber abgelehnt hat, nicht mehr dauernd neu: Erst nach dem Hinausfahren aus dem Ziel zählt die nächste Einfahrt.
 - `2026-11-23 15:34` **Strassen** wellen nicht mehr: jede Strasse hat jetzt ein eigenes, **glattes Höhenprofil** aus dem 2-m-Gelände von swisstopo, und das Gelände am Strassenrand ist daran angepasst. Am deutlichsten auf der **A3**.
-
 - `2026-11-23 09:13` Im **Mehrspieler** steht das Auto des anderen Spielers nicht mehr **quer**: Nach mehr als einer halben Drehung kam seine Fahrtrichtung bisher falsch an, auch beim Zusammenstossen.
 - `2026-11-21 00:47` Gemeinsam fahren: Im **Hübel** (Lift, Tunnelring, Räume) bleibt das Auto des anderen Spielers jetzt **sichtbar**, statt bis zur Rückkehr an die Oberfläche verschwunden zu sein. Ruckelt das Spiel eines Spielers kurz (etwa beim ersten Mal im Lift), taucht das andere Auto gleich danach wieder auf, statt noch Sekunden **eingefroren** zu bleiben.
 - `2026-11-21 00:19` In einem **Mehrspieler-Rennen** verschwinden die **Checkpoints** und der **Pfeil**, sobald Du im Ziel bist.
