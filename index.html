@@ -1030,7 +1030,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
 import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
@@ -1496,12 +1496,12 @@ if (L) for (const r of L.bridges) {
   const len = polylineLength(r.pts), kind = L.anchors.landmarks.holzbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.holzbruecke.x, L.anchors.landmarks.holzbruecke.z).d < 15 ? 'wood'
     : L.anchors.landmarks.fridolinsbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.fridolinsbruecke.x, L.anchors.landmarks.fridolinsbruecke.z).d < 15 ? 'stone' : 'generic';
   // the two hero bridges use the hand models' deck widths, so physics and visuals agree
-  const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0, modern: !!r.modern }; OSM_BRIDGES.push(b);   // #530: modern = not there in 1952
+  const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0, modern: !!r.modern, ...(r.tlm ? { tlmSamples: r.tlm, under: r.tlmUnder ?? [] } : {}) }; OSM_BRIDGES.push(b);   // #530: modern = not there in 1952
   for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...r.pts[i], ...r.pts[i + 1], b.hw * 2, b);
 }
 // #76: OSM railway bridges become rail decks -- ground from above like a road bridge (onBridge), nothing to a car underneath
 if (L) for (const rb of L.railBridges) {
-  const b = { r: { pts: rb.pts, w: 5.5 }, len: polylineLength(rb.pts), hw: 2.75, kind: 'rail', layer: rb.layer, h0: 0, h1: 0 };
+  const b = { r: { pts: rb.pts, w: 5.5 }, len: polylineLength(rb.pts), hw: 2.75, kind: 'rail', layer: rb.layer, h0: 0, h1: 0, ...(rb.tlm ? { tlmSamples: rb.tlm.map(([t, y]) => [t, y - TLM_RAIL_TOP]), under: rb.tlmUnder ?? [] } : {}) };   // #1196: measured heights; the sample is the top of the rail
   OSM_BRIDGES.push(b); RAIL_DECKS.push(b);
   for (let i = 0; i < rb.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...rb.pts[i], ...rb.pts[i + 1], b.hw * 2, b);
 }
@@ -1555,7 +1555,7 @@ function buildStoneChain() {
 // `surf` is the surface the bank top is read from: the bare terrain while the world is still being laid out, the ground the car
 // actually drives on (roadTopH) once the road ribbons exist -- seating a metre below those leaves the bank climbing past the end.
 function seatGenericEnds(surf = terrainH) {
-  for (const b of OSM_BRIDGES) { if (b.kind !== 'generic' || b.approach) continue;
+  for (const b of OSM_BRIDGES) { if (b.kind !== 'generic' || b.approach || b.tlm) continue;   // #1196: a TLM deck keeps the heights fillTlmDecks gave it
     for (const k of [0, 1]) { const p = b.r.pts, end = k ? p[p.length - 1] : p[0], prev = k ? p[p.length - 2] : p[1];
       const roads = roadsFrom(end, new Set()); if (!roads.length) continue;
       const seat = roads.map(({ pts }) => seatEnd(sampleH(cutPolyline(pts, END_SEAT.reach), 1, surf))).reduce((a, s) => s.h < a.h ? s : a);
@@ -1564,7 +1564,15 @@ function seatGenericEnds(surf = terrainH) {
       if (seat.reach > b.hw) { const d = Math.hypot(end[0] - prev[0], end[1] - prev[1]) || 1, ux = (end[0] - prev[0]) / d, uz = (end[1] - prev[1]) / d;
         gridAddSegment(BRIDGE_GRID, end[0], end[1], end[0] + ux * seat.reach, end[1] + uz * seat.reach, b.hw * 2, b); } } }
 }
-function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); buildStoneChain(); }
+// #1196: a deck with swissTLM3D samples gets a height profile pinned to the surface it joins at each end: a switch end takes that
+// deck's surface, a road deck end `surf` at the end point (terrainH while laying out, roadTopH once the ribbons exist), a rail end the ground.
+// Hero chains (wood/stone, approaches) never carry samples. Without samples a deck is left as it was.
+function fillTlmDecks(decks, surf) {
+  for (const b of decks) { if (!b.tlmSamples || b.kind === 'wood' || b.kind === 'stone' || b.approach) continue;
+    const p = b.r.pts, end = (k) => k ? p[p.length - 1] : p[0], at = (k) => { const sw = b.kind === 'rail' ? switchUnder(b, ...end(k)) : null; return sw ? bridgeSurfaceAt(sw.o, sw.t) : surf(...end(k)); };
+    b.h0 = at(0); b.h1 = at(1); b.prof = tlmProfile(b.tlmSamples, b.len, b.h0, b.h1); b.tlm = true; }
+}
+function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); fillTlmDecks(OSM_BRIDGES, terrainH); buildStoneChain(); }
 // #42: inside a grade's band (the track fan over the Südspange cutting) a deck end lying on another deck is a switch: it
 // takes that deck's surface, not the ground's, so the fan is one level slab (two passes for a switch on a switch)
 const inGradeBand = (x, z) => !!L && L.grades.some((g) => nearestOnPolyline(g.pts, x, z).d < g.hw + GRADE_BAND);
@@ -1660,8 +1668,9 @@ function makeCut(c, deck = RAIL_DECKS[c.bridge], minFloor = -Infinity, skip = ne
   const b = deck, hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), len = polylineLength(c.road.pts), deckMin = deckMinAt(c, b);
   const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return gradedH(x, z); };
   const near = [...new Set([...gridQuery(ROAD_GRID, c.x, c.z, 250)].map(({ r }) => r))].filter((r) => !skip.has(r.id));
-  const target = cutFloorTarget(deckMin, groundAt(0));
-  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: Math.max(target, minFloor), raised: minFloor > target, capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [] };
+  const yU = b.tlm ? tlmUnderAt(b.under, c.x, c.z) : null;   // #1196: the measured road under a TLM deck
+  const target = yU !== null ? tlmFloorTarget(deckMin, yU, groundAt(0)) : cutFloorTarget(deckMin, groundAt(0));
+  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: Math.max(target, minFloor), raised: minFloor > target, capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [], tlmRoad: yU };
   settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, gradedH); });
   if (cut.unsettled) console.warn(`underpass at ${c.road.n} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): the cut floor did not settle; kept the shallowest capped floor`);
   for (const a of cut.arms) a.deck = b;
@@ -2760,7 +2769,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   function roadHeightFn(r) { const pts = dropRepeats(r.pts); return (p, t) => { const s = t === undefined ? nearestOnPolyline(pts, p[0], p[1]).t : t, w = profileWeight(p[0], p[1]), y = roadProfileH(r, s); return w >= 1 ? y : w * y + (1 - w) * terrainH(p[0], p[1]); }; }
   const onProfile = (r) => !!r.zp && !!L && !NO_PROFILE;
   for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true, onProfile(r) ? roadHeightFn(r) : null).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
-  if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
+  if (L) { seatGenericEnds(roadTopH); fillTlmDecks(ROAD_DECKS, roadTopH); }   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   await loadStage('markings');
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
     const mats = {}, geos = {}, geosModern = {};
@@ -6041,7 +6050,7 @@ function railEndGap(deck, x, z, h) {
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
-  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, deck, clearance: deck - UNDERPASS.deck - road,
+  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, tlm: !!c.deck.tlm, tlmRoad: c.tlmRoad ?? null, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => railEndGap(c.deck, x, z, h))) };
 });
 // #1044: the road cuts, as __mm.crossings (no railGap) plus the lower road's and deck's OSM ids, the water level that raised the
@@ -6053,8 +6062,9 @@ window.__mm.roadCrossings = () => ROAD_CUTS.map(c => {
   let guardDepth = 0; for (const g of c.guards) for (let s = 0; s <= polylineLength(g.pts); s += 1) { const [x, z] = pointAtLength(g.pts, s); if (!railAt(x, z)) guardDepth = Math.max(guardDepth, cutDepth(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail);
   return { x: c.x, z: c.z, road: c.road.n, roadId: c.road.id, deckId: c.deck.r.id, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind },
-           deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
+           tlm: !!c.deck.tlm, tlmRoad: c.tlmRoad ?? null, deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
 });
+window.__mm.tlmDecks = () => OSM_BRIDGES.filter((b) => b.tlm).map((b) => { const p = b.r.pts; return { kind: b.kind === 'rail' ? 'rail' : 'road', id: b.r.id ?? null, pts: p, h0: b.h0, h1: b.h1, prof: b.prof, endGround: [terrainH(...p[0]), terrainH(...p[p.length - 1])] }; });
 window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
 // #1044: the road cuts' arms (the cut road itself included): its road, polyline, half width, floor at the crossing and lowered span
 window.__mm.roadArms = () => ARMS.filter((a) => a.roadCut).map((a) => ({ road: a.road.id, pts: a.pts, hw: a.hw, f0: a.f0, span: armSpan(a), bounds: a.bounds }));
