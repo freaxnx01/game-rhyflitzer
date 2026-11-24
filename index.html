@@ -322,24 +322,27 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 }
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
 @media (pointer:coarse){#touch{display:block}}
-#touch button{position:absolute;pointer-events:auto;width:84px;height:84px;border-radius:50%;background:rgba(20,23,29,.6);border:4px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
+#touch button{position:absolute;pointer-events:auto;width:64px;height:64px;border-radius:50%;background:rgba(20,23,29,.25);border:2px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
 /* #535 phase 2: two bottom-anchored thumb columns -- the stick plus the camera, the menu and the context button on the left,
    gas/brake plus the handbrake, jump and Z on the right. Every control is at least 44 px and keeps off the safe-area insets.
    The columns are measured from the bottom edge only, never from the top: on a short phone (360x640) a third right-hand row
    would reach up into #pausebtn (top 208), and the right column stops below it on purpose. */
-#tStick{position:absolute;pointer-events:auto;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px));width:132px;height:132px;box-sizing:border-box;border-radius:50%;background:rgba(20,23,29,.45);border:4px solid var(--steel-l);touch-action:none;user-select:none;-webkit-user-select:none}
-#tStick i{position:absolute;left:34px;top:34px;width:56px;height:56px;border-radius:50%;background:var(--steel-l);pointer-events:none}
-#tG{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:calc(112px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
-#touch .round,#touch button#tH{width:56px;height:56px;font-size:22px}
+#tStick{position:absolute;pointer-events:auto;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px));width:104px;height:104px;box-sizing:border-box;border-radius:50%;background:rgba(20,23,29,.25);border:2px solid var(--steel-l);touch-action:none;user-select:none;-webkit-user-select:none}
+#tStick i{position:absolute;left:28px;top:28px;width:44px;height:44px;border-radius:50%;background:var(--steel-l);pointer-events:none}
+#tG{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:calc(92px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
+#touch .round,#touch button#tH{width:44px;height:44px;font-size:18px}
 #touch button#tH{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tJ{right:calc(84px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tZ{right:calc(148px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tJ{right:calc(72px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tZ{right:calc(124px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
 #tC{left:calc(76px + env(safe-area-inset-left,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
 #touch button#tE{width:auto;min-width:96px;height:48px;border-radius:24px;padding:0 16px;font-size:18px;font-weight:800;letter-spacing:1px;background:var(--sun);color:var(--ink);left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(420px + env(safe-area-inset-bottom,0px))}
 #touch button#tMenu{width:48px;height:48px;border-radius:0;font-size:24px;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
 /* open, the list is what you are reading: it takes the whole left side and may cover the controls and the speedometer behind it */
 #tMenuList{position:absolute;pointer-events:auto;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 120px - env(safe-area-inset-top,0px));overflow:auto;display:flex;flex-direction:column;gap:4px;background:rgba(20,23,29,.92);border:3px solid var(--steel);padding:6px;box-sizing:border-box}
 #tMenuList[hidden],#touch button[hidden]{display:none}
+/* #1181: idle for touchFaded's 4 s, the controls dim to .3 (touch.js TOUCH_FADE); they keep taking input, any pointerdown lights them again */
+#touch>:not(#tMenuList){transition:opacity .4s}
+#touch.faded>:not(#tMenuList){opacity:.3}
 #tMenuList button{position:static;width:100%;height:auto;min-height:44px;border-radius:0;font-size:16px;text-align:left;padding:6px 10px}
 #touch:not([data-ctx=car]) :is(#tB,#tH,#tC){display:none}   /* brake, handbrake and the camera are the car's; on foot Gas is the jump */
 #touch:is([data-ctx=heli],[data-ctx=train]) :is(#tStick,#tG,#tJ,#tC){display:none}   /* helicopter and loco: Z and the menu, dedicated controls are a follow-up */
@@ -1109,7 +1112,7 @@ import { HINT_CFG, HINTS_KEY, HINTS_ON_KEY, PLAY_TIME_KEY, hintStoreFrom, hintsO
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
 import { clampCentre, zoomAt } from './mapzoom.js';   // #843
 import { capsRow, capsCross } from './keycaps.js';   // #700
-import { bindStick, TOUCH_LOOK } from './touch.js';   // #535 phase 2
+import { bindStick, TOUCH_LOOK, touchFaded } from './touch.js';   // #535 phase 2
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
@@ -4762,6 +4765,10 @@ holdButton('tG', () => { if (FOOT.on) keys.Space = true; else { touch.g = 1; sto
 holdButton('tB', () => { touch.b = 1; stopAuto('off'); }, () => { touch.b = 0; });
 holdButton('tH', () => { touch.h = 1; stopAuto('off'); }, () => { touch.h = 0; });
 for (const [id, cmd] of [['tZ', 'KeyZ'], ['tJ', 'KeyJ'], ['tC', 'KeyC'], ['tE', 'KeyE']]) document.getElementById(id).addEventListener('click', () => pressKey(cmd));
+let lastTouchMs = performance.now();   // #1181: any pointerdown on the page lights the controls at once; touchFaded dims them after TOUCH_FADE.idleMs
+const lightTouch = () => { lastTouchMs = performance.now(); $('touch').classList.remove('faded'); };
+document.addEventListener('pointerdown', lightTouch, true);
+setInterval(() => { $('touch').classList.toggle('faded', touchFaded(lastTouchMs, performance.now())); }, 250);
 function closeTouchMenu() { $('tMenuList').hidden = true; $('tMenu').setAttribute('aria-expanded', 'false'); }
 function openTouchMenu() {
   $('tMenuList').innerHTML = menuEntries(controlContext()).map(m => `<button type="button" data-cmd="${m.cmd}">${tr(m.label)}</button>`).join('');

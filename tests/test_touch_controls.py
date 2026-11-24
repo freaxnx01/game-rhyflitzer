@@ -151,3 +151,29 @@ def test_phone_layout_fits(server, vp):
         for c in names[i + 1:]:
             assert not overlap(shown[a], shown[c]), (a, c, shown[a], shown[c])
     assert bars == {"keybar": "none", "setkeybar": "none"}          # the key bar is the desktop's
+
+
+def test_controls_are_small_translucent_and_fade_when_idle(server):
+    """#1181: stick 104, gas/brake 64, round buttons >= 44, a quarter-opaque fill; 4 s idle dims them to .3, a tap lights them and still works."""
+    with sync_playwright() as p:
+        b, page, errors = open_phone(p, server)
+        sizes = page.evaluate("""() => { const o = {}; for (const s of ['#tStick', '#tG', '#tB', '#tH']) {
+            const el = document.querySelector(s), r = el.getBoundingClientRect(), st = getComputedStyle(el);
+            o[s] = { w: r.width, h: r.height, bg: st.backgroundColor, border: st.borderTopWidth }; } return o; }""")
+        page.wait_for_function("() => document.querySelector('#touch').classList.contains('faded')", timeout=T)
+        page.wait_for_timeout(600)       # past the .4 s transition
+        faded = page.evaluate("() => getComputedStyle(document.querySelector('#tG')).opacity")
+        ptr(page, "#tG", "pointerdown", 1)   # the first tap on a faded control: pointer-events stay on, so gas works at once
+        page.wait_for_function("() => window.__mm.drive().gas === 1", timeout=T)
+        lit = page.evaluate("() => document.querySelector('#touch').classList.contains('faded')")
+        ptr(page, "#tG", "pointerup", 1)
+        b.close()
+    assert errors == []
+    assert (sizes["#tStick"]["w"], sizes["#tStick"]["h"]) == (104, 104), sizes
+    assert (sizes["#tG"]["w"], sizes["#tB"]["w"]) == (64, 64), sizes
+    assert sizes["#tH"]["w"] >= 44, sizes
+    for s, v in sizes.items():
+        alpha = float(v["bg"].split(",")[3].strip(" )")) if v["bg"].startswith("rgba") else 1.0
+        assert alpha <= 0.3 and v["border"] == "2px", (s, v)
+    assert abs(float(faded) - 0.3) < 0.02, faded
+    assert lit is False                                              # a pointerdown anywhere brings them back at once
