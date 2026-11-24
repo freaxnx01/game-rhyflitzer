@@ -1,0 +1,878 @@
+{
+ "release": "2026-02",
+ "base": 284.0,
+ "crossings": [
+  {
+   "kind": "rail",
+   "x": -4030.5278002112195,
+   "z": 546.1919488103374,
+   "road": "Kapfstrasse",
+   "before": {
+    "deck": 22.163,
+    "road": 16.363,
+    "clearance": 4.599,
+    "depth": 4.791
+   },
+   "tlm": {
+    "deck": 25.78,
+    "road": 19.91
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -4032.7119118384994,
+   "z": 549.3700274057205,
+   "road": "Kapfstrasse",
+   "before": {
+    "deck": 22.452,
+    "road": 16.46,
+    "clearance": 4.792,
+    "depth": 4.296
+   },
+   "tlm": {
+    "deck": 25.78,
+    "road": 20.2
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -3379.330636414636,
+   "z": 735.9168360032412,
+   "road": "Ankengasse",
+   "before": {
+    "deck": 20.236,
+    "road": 9.684,
+    "clearance": 9.353,
+    "depth": 0
+   },
+   "tlm": {
+    "deck": 25.98,
+    "road": 9.54
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -3378.7827125178783,
+   "z": 739.7888315403271,
+   "road": "Ankengasse",
+   "before": {
+    "deck": 21.308,
+    "road": 9.837,
+    "clearance": 10.271,
+    "depth": 0
+   },
+   "tlm": {
+    "deck": 26.06,
+    "road": 9.7
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -886.5133028605131,
+   "z": 1210.4550132704217,
+   "road": "",
+   "before": {
+    "deck": 24.801,
+    "road": 18.385,
+    "clearance": 5.216,
+    "depth": 4.571
+   },
+   "tlm": {
+    "deck": 26.66,
+    "road": 20.63
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -886.4185653692241,
+   "z": 1209.6116185308974,
+   "road": "",
+   "before": {
+    "deck": 24.733,
+    "road": 18.311,
+    "clearance": 5.222,
+    "depth": 4.598
+   },
+   "tlm": {
+    "deck": 26.65,
+    "road": 20.58
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -885.862270564242,
+   "z": 1204.6592379499593,
+   "road": "",
+   "before": {
+    "deck": 24.516,
+    "road": 17.936,
+    "clearance": 5.38,
+    "depth": 5.038
+   },
+   "tlm": {
+    "deck": 26.18,
+    "road": 20.32
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -885.3682636650523,
+   "z": 1200.2613716522942,
+   "road": "",
+   "before": {
+    "deck": 24.042,
+    "road": 17.835,
+    "clearance": 5.006,
+    "depth": 5.191
+   },
+   "tlm": {
+    "deck": 25.71,
+    "road": 20.09
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -885.9128065395096,
+   "z": 1205.1091313883167,
+   "road": "",
+   "before": {
+    "deck": 24.496,
+    "road": 17.949,
+    "clearance": 5.346,
+    "depth": 5.029
+   },
+   "tlm": {
+    "deck": 26.18,
+    "road": 20.35
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -886.8365465536656,
+   "z": 1213.3326705387306,
+   "road": "",
+   "before": {
+    "deck": 24.771,
+    "road": 18.629,
+    "clearance": 4.942,
+    "depth": 4.768
+   },
+   "tlm": {
+    "deck": 26.8,
+    "road": 20.78
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -215.39360196936033,
+   "z": 1087.9966970196697,
+   "road": "Hauptstrasse",
+   "before": {
+    "deck": 31.195,
+    "road": 25.372,
+    "clearance": 4.623,
+    "depth": 3.744
+   },
+   "tlm": {
+    "deck": 33.84,
+    "road": 27.9
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": -210.41210762331838,
+   "z": 1092.2503756333354,
+   "road": "Hauptstrasse",
+   "before": {
+    "deck": 31.451,
+    "road": 25.318,
+    "clearance": 4.933,
+    "depth": 3.256
+   },
+   "tlm": {
+    "deck": 33.82,
+    "road": 27.92
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 1569.3275534441805,
+   "z": 628.2859263657957,
+   "road": "Laufenburgerstrasse",
+   "before": {
+    "deck": 19.016,
+    "road": 13.083,
+    "clearance": 4.734,
+    "depth": 2.545
+   },
+   "tlm": {
+    "deck": 21.15,
+    "road": 14.88
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 1572.2178534081186,
+   "z": 1809.3292708432361,
+   "road": "Laufenburgerstrasse",
+   "before": {
+    "deck": 41.476,
+    "road": 35.489,
+    "clearance": 4.788,
+    "depth": 5.441
+   },
+   "tlm": {
+    "deck": 44.05,
+    "road": 38.91
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 1570.8443388612636,
+   "z": 1813.500218687355,
+   "road": "Laufenburgerstrasse",
+   "before": {
+    "deck": 41.674,
+    "road": 35.599,
+    "clearance": 4.876,
+    "depth": 4.932
+   },
+   "tlm": {
+    "deck": 44.04,
+    "road": 38.99
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 1569.7145801133436,
+   "z": 621.4162029881505,
+   "road": "Laufenburgerstrasse",
+   "before": {
+    "deck": 18.77,
+    "road": 12.834,
+    "clearance": 4.737,
+    "depth": 2.719
+   },
+   "tlm": {
+    "deck": 21.16,
+    "road": 14.73
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 2391.203936288932,
+   "z": 2648.403581211322,
+   "road": "Hauptstrasse",
+   "before": {
+    "deck": 45.529,
+    "road": 39.34,
+    "clearance": 4.989,
+    "depth": 2.92
+   },
+   "tlm": {
+    "deck": 46.84,
+    "road": 39.92
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 2384.482993088512,
+   "z": 2646.0497707072104,
+   "road": "Hauptstrasse",
+   "before": {
+    "deck": 45.262,
+    "road": 38.987,
+    "clearance": 5.075,
+    "depth": 2.411
+   },
+   "tlm": {
+    "deck": 46.8,
+    "road": 39.85
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 2860.6418341638205,
+   "z": 3242.602329096915,
+   "road": "",
+   "before": {
+    "deck": 54.262,
+    "road": 48.368,
+    "clearance": 4.694,
+    "depth": 5.206
+   },
+   "tlm": {
+    "deck": 55.98,
+    "road": 51.5
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 2857.587174133845,
+   "z": 3244.9537580408532,
+   "road": "",
+   "before": {
+    "deck": 54.388,
+    "road": 48.419,
+    "clearance": 4.769,
+    "depth": 4.918
+   },
+   "tlm": {
+    "deck": 56.03,
+    "road": 51.54
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 3259.262933181527,
+   "z": 5297.220529424322,
+   "road": "Landstrasse",
+   "before": {
+    "deck": 78.287,
+    "road": 72.32,
+    "clearance": 4.767,
+    "depth": 4.437
+   },
+   "tlm": {
+    "deck": 80.17,
+    "road": 75.04
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 3263.692505204719,
+   "z": 5294.375711311589,
+   "road": "Landstrasse",
+   "before": {
+    "deck": 78.696,
+    "road": 71.966,
+    "clearance": 5.53,
+    "depth": 4.77
+   },
+   "tlm": {
+    "deck": 80.11,
+    "road": 74.95
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 3267.8532430506057,
+   "z": 5291.998146828225,
+   "road": "Landstrasse",
+   "before": {
+    "deck": 78.044,
+    "road": 71.946,
+    "clearance": 4.898,
+    "depth": 4.611
+   },
+   "tlm": {
+    "deck": 80.11,
+    "road": 74.88
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 3525.4780894617134,
+   "z": 4090.9575435936313,
+   "road": "Schützenweg",
+   "before": {
+    "deck": 67.073,
+    "road": 61.205,
+    "clearance": 4.668,
+    "depth": 3.034
+   },
+   "tlm": {
+    "deck": 69.05,
+    "road": 63.52
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 3528.730805463966,
+   "z": 4088.253038153556,
+   "road": "Schützenweg",
+   "before": {
+    "deck": 66.897,
+    "road": 61.12,
+    "clearance": 4.577,
+    "depth": 2.909
+   },
+   "tlm": {
+    "deck": 69.09,
+    "road": 63.31
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 4609.325187582757,
+   "z": 5561.494321023981,
+   "road": "Königsweg",
+   "before": {
+    "deck": 96.187,
+    "road": 95.864,
+    "clearance": -0.876,
+    "depth": 0
+   },
+   "tlm": {
+    "deck": 99.28,
+    "road": 94.08
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 4609.362072463768,
+   "z": 5565.2934637681155,
+   "road": "Königsweg",
+   "before": {
+    "deck": 96.6,
+    "road": 95.876,
+    "clearance": -0.475,
+    "depth": 0.07
+   },
+   "tlm": {
+    "deck": 98.97,
+    "road": 94.28
+   },
+   "off": true
+  },
+  {
+   "kind": "rail",
+   "x": 1239.576746611053,
+   "z": 573.9021223087775,
+   "road": "Südspange",
+   "before": {
+    "deck": 21.029,
+    "road": 14.364,
+    "clearance": 5.465,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1229.7677814384285,
+   "z": 566.1126499658109,
+   "road": "",
+   "before": {
+    "deck": 20.963,
+    "road": 14.867,
+    "clearance": 4.897,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1249.9225827384817,
+   "z": 574.2310837118754,
+   "road": "Südspange",
+   "before": {
+    "deck": 20.827,
+    "road": 14.108,
+    "clearance": 5.519,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1243.5616409015747,
+   "z": 566.5568966473937,
+   "road": "",
+   "before": {
+    "deck": 20.812,
+    "road": 14.155,
+    "clearance": 5.457,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1242.6700579967728,
+   "z": 566.5281822221183,
+   "road": "",
+   "before": {
+    "deck": 21.045,
+    "road": 14.181,
+    "clearance": 5.664,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1229.4363978862903,
+   "z": 573.5796946863685,
+   "road": "Südspange",
+   "before": {
+    "deck": 21.104,
+    "road": 14.863,
+    "clearance": 5.042,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1218.5987722744492,
+   "z": 565.7529395257471,
+   "road": "",
+   "before": {
+    "deck": 21.015,
+    "road": 15.233,
+    "clearance": 4.582,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1231.7627931156123,
+   "z": 573.6536659178255,
+   "road": "Südspange",
+   "before": {
+    "deck": 20.86,
+    "road": 14.713,
+    "clearance": 4.947,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1222.6466377874042,
+   "z": 565.8833055648117,
+   "road": "",
+   "before": {
+    "deck": 20.81,
+    "road": 15.114,
+    "clearance": 4.496,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1243.0025805945565,
+   "z": 574.0110518472037,
+   "road": "Südspange",
+   "before": {
+    "deck": 20.818,
+    "road": 14.191,
+    "clearance": 5.427,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "rail",
+   "x": 1234.9187734123182,
+   "z": 566.2785434271278,
+   "road": "",
+   "before": {
+    "deck": 20.793,
+    "road": 14.554,
+    "clearance": 5.039,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": -610.3131149174465,
+   "z": 1063.5432347871142,
+   "road": "Zürcherstrasse",
+   "before": {
+    "deck": 23.62,
+    "road": 17.246,
+    "clearance": 5.174,
+    "depth": 2.221
+   },
+   "tlm": {
+    "deck": 25.35,
+    "road": 18.35
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": -628.0489187761034,
+   "z": 1068.344253965673,
+   "road": "Zürcherstrasse",
+   "before": {
+    "deck": 23.363,
+    "road": 17.133,
+    "clearance": 5.03,
+    "depth": 1.838
+   },
+   "tlm": {
+    "deck": 25.11,
+    "road": 17.98
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": 4304.3440299162385,
+   "z": 4478.354629313623,
+   "road": "Kaistenbergstrasse",
+   "before": {
+    "deck": 69.761,
+    "road": 63.296,
+    "clearance": 5.265,
+    "depth": 2.466
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": 4297.195058758496,
+   "z": 4487.280745843911,
+   "road": "Kaistenbergstrasse",
+   "before": {
+    "deck": 69.469,
+    "road": 63.436,
+    "clearance": 4.833,
+    "depth": 1.601
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": -632.7133817767576,
+   "z": 1057.4719902652882,
+   "road": "Zürcherstrasse",
+   "before": {
+    "deck": 22.552,
+    "road": 16.368,
+    "clearance": 4.983,
+    "depth": 1.515
+   },
+   "tlm": {
+    "deck": 25.23,
+    "road": 17.64
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": -649.6494464173805,
+   "z": 1061.8593273448923,
+   "road": "Zürcherstrasse",
+   "before": {
+    "deck": 22.751,
+    "road": 16.345,
+    "clearance": 5.206,
+    "depth": 2.119
+   },
+   "tlm": {
+    "deck": 25.01,
+    "road": 17.28
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": -2312.097629528188,
+   "z": -89.72745769343638,
+   "road": "Fricktalstraße",
+   "before": {
+    "deck": 8.017,
+    "road": 2.165,
+    "clearance": 4.651,
+    "depth": 4.496
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": -2256.4307692307693,
+   "z": 76.3892307692306,
+   "road": "Fricktalstraße",
+   "before": {
+    "deck": 8.192,
+    "road": 2.352,
+    "clearance": 4.639,
+    "depth": 2.351
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": -3996.2325012236906,
+   "z": 498.0107684777288,
+   "road": "Vordermattweg",
+   "before": {
+    "deck": 13.892,
+    "road": 6.665,
+    "clearance": 6.026,
+    "depth": 2.622
+   },
+   "tlm": {
+    "deck": 15.55,
+    "road": 8.17
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": -873.3826673475467,
+   "z": 1091.4294310396187,
+   "road": "",
+   "before": {
+    "deck": 21.69,
+    "road": 15.78,
+    "clearance": 4.71,
+    "depth": 5.481
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": -874.7627771655278,
+   "z": 1103.0889795018734,
+   "road": "",
+   "before": {
+    "deck": 21.63,
+    "road": 15.591,
+    "clearance": 4.839,
+    "depth": 5.463
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": -3383.3809078014183,
+   "z": 712.5377588652483,
+   "road": "Ankengasse",
+   "before": {
+    "deck": 15.521,
+    "road": 8.93,
+    "clearance": 5.39,
+    "depth": 0
+   },
+   "tlm": {
+    "deck": 17.96,
+    "road": 8.64
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": -3385.4950891364188,
+   "z": 702.9242173230778,
+   "road": "Ankengasse",
+   "before": {
+    "deck": 14.408,
+    "road": 8.607,
+    "clearance": 4.601,
+    "depth": 0
+   },
+   "tlm": {
+    "deck": 17.77,
+    "road": 8.27
+   },
+   "off": true
+  },
+  {
+   "kind": "road",
+   "x": 4351.565847179289,
+   "z": -1189.9132824574963,
+   "road": "Fabrikstraße",
+   "before": {
+    "deck": 46.104,
+    "road": 38.118,
+    "clearance": 6.785,
+    "depth": 4.236
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": 4439.92955705246,
+   "z": -1183.4791385997144,
+   "road": "Fabrikstraße",
+   "before": {
+    "deck": 47.137,
+    "road": 40.573,
+    "clearance": 5.364,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": 4507.294651902462,
+   "z": -1181.934067616916,
+   "road": "Murgtalstraße",
+   "before": {
+    "deck": 52.404,
+    "road": 43.699,
+    "clearance": 7.504,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  },
+  {
+   "kind": "road",
+   "x": 4522.607214033858,
+   "z": -1181.7261908411992,
+   "road": "Murgtalstraße",
+   "before": {
+    "deck": 53.601,
+    "road": 44.951,
+    "clearance": 7.45,
+    "depth": 0
+   },
+   "tlm": null,
+   "off": false
+  }
+ ]
+}
