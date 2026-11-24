@@ -2,6 +2,7 @@
 
 - Siegfried map and SWISSIMAGE HIST 1946 © swisstopo (https://www.swisstopo.admin.ch), tracing reference only for `era.houses`, no imagery is shipped
 - swissBUILDINGS3D 3.0 © swisstopo (https://www.swisstopo.admin.ch), Open Government Data, Quellenangabe Pflicht
+- swissTLM3D © swisstopo (https://www.swisstopo.admin.ch), Open Government Data, Quellenangabe Pflicht: bridge and underpass heights
 - Landwirtschaftliche Nutzungsflächen © Kanton Aargau via geodienste.ch (https://geodienste.ch/services/lwb_nutzungsflaechen), frei erhältlich / Open Data, Quellenangabe Pflicht
 - Gebäude- und Wohnungsregister (GWR) © BFS, Open Data (freie Nutzung, Quellenangabe Pflicht) (https://public.madd.bfs.admin.ch/ag.zip)
 - Fahrplandaten (GTFS) © opentransportdata.swiss (https://opentransportdata.swiss), Nutzungsbedingungen https://opentransportdata.swiss/en/terms-of-use/, Quellenangabe Pflicht
