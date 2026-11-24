@@ -1,7 +1,7 @@
 // #83: the pause menu's key and focus rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor, withLobbyButton } from '../pause.js';
+import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor, withLobbyButton, withoutRestartInNetRace } from '../pause.js';
 
 const key = (code, extra = {}) => ({ code, shiftKey: false, repeat: false, ...extra });
 const RUN = { paused: false, canPause: true };
@@ -138,4 +138,27 @@ test('withLobbyButton_DoesNotChangeItsInput', () => {
   withLobbyButton(ids);
   assert.ok(!ids.includes('pauselobby'));
   assert.ok(!PAUSE_BUTTONS.includes('pauselobby'), 'single player never shows it');
+});
+
+test('withoutRestartInNetRace_RaceRunning_DropsRestart', () => {
+  const ids = pauseButtonsFor('trial');
+  const out = withoutRestartInNetRace(ids, { over: false });
+  assert.ok(!out.includes('pauserestart'));
+  assert.deepEqual(out, ids.filter(id => id !== 'pauserestart'));
+});
+
+test('withoutRestartInNetRace_RaceOver_KeepsRestart', () => {
+  const ids = pauseButtonsFor('trial');
+  assert.deepEqual(withoutRestartInNetRace(ids, { over: true }), ids);
+});
+
+test('withoutRestartInNetRace_NoNetRace_KeepsRestart', () => {
+  const ids = pauseButtonsFor('trial');
+  assert.deepEqual(withoutRestartInNetRace(ids, null), ids);
+});
+
+test('withoutRestartInNetRace_DoesNotChangeItsInput', () => {
+  const ids = [...pauseButtonsFor('trial')];
+  withoutRestartInNetRace(ids, { over: false });
+  assert.deepEqual(ids, pauseButtonsFor('trial'));
 });
