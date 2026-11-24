@@ -21,6 +21,7 @@ pytestmark = [pytest.mark.skipif(not PBF.exists(), reason="cache/osm/ehrendingen
 def world(tmp_path_factory):
     mp = pytest.MonkeyPatch()
     mp.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    mp.setattr(region.terrain, "swiss_tiles", lambda *a, **k: [])      # #1152: no tile download in the test
     files = region.build_world(RECT, tmp_path_factory.mktemp("real"), pbf=PBF, dsm=False)
     mp.undo()
     return json.loads(files["world"].read_text("utf-8"))

@@ -5,6 +5,7 @@ import { oldNationalBorder, apartRuns } from '../world.js';
 import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
+import { PROFILE_STEP, profileAt, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from '../world.js';
 import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, SURFACE_DEPTH_OFFSET, depthOffsetFor, DECAL_DEPTH_OFFSET } from '../world.js';
 
 test('grid finds segments near a point only', () => {
@@ -1466,6 +1467,19 @@ test('oldNationalBorder: the real data -- old crosses the Holzbrücke at its old
   assert.ok(border.filter(p => p[0] > -1300 && p[0] < -1100 && p[1] > 130 && p[1] < 200).every(p => nearestOnPolyline([...island, island[0]], p[0], p[1]).d < 6), 'new hugs the island shore (OSM puts it within a few m of the wood edge)');
 });
 function pointInRing(ring, p) { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) if ((ring[i][1] > p[1]) !== (ring[j][1] > p[1]) && p[0] < (ring[j][0] - ring[i][0]) * (p[1] - ring[i][1]) / (ring[j][1] - ring[i][1]) + ring[i][0]) c = !c; return c; }
+test('#1152 yieldIndex: the table gives the same weight as the scan, and skips the scan on free cells', () => {
+  const G = { x0: -50, z0: -30, dx: 16, dz: 16, nx: 40, nz: 30 }, cells = new Set(['10,10', '11,10', '3,25', '0,0', '39,29']);
+  let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const idx = yieldIndex(cells, G);
+  for (let k = 0; k < 4000; k++) {
+    const x = G.x0 - 60 + rnd() * (G.nx * G.dx + 120), z = G.z0 - 60 + rnd() * (G.nz * G.dz + 120);
+    assert.equal(yieldWeight(cells, G, x, z, undefined, idx), yieldWeight(cells, G, x, z), `at ${x}, ${z}`);
+  }
+  let looks = 0; const spy = new Set(cells); const has = spy.has.bind(spy); spy.has = (k) => { looks++; return has(k); };
+  assert.equal(yieldWeight(spy, G, G.x0 + 20 * G.dx, G.z0 + 20 * G.dz, undefined, idx), 1);
+  assert.equal(looks, 0);
+});
+
 
 // #290: one 4 m quad along +x, 4 m wide: left edge z = -2, right edge z = +2 (A = left 0, B = right 0, C = right 1, D = left 1)
 const QL = [[0, -2], [4, -2]], QR = [[0, 2], [4, 2]];
@@ -1481,6 +1495,19 @@ test('ribbonLift lifts a twisted quad whose drawn diagonal runs under the ground
   const ground = ([x, z]) => { const v = x / 4, u = (z + 2) / 4; return (0 * (1 - v) + 1 * v) * (1 - u) + (1 * (1 - v) + 0 * v) * u; };
   const up = ribbonLift(QL, QR, [0, 1], [1, 0], ground);
   assert.ok(up[0] >= 0.5 - 1e-9 && up[1] >= 0.5 - 1e-9, `up ${[...up]}`);
+});
+
+test('ribbonLift hands hAt the station along the quad, from dist', () => {
+  const seen = []; ribbonLift(QL, QR, [0, 0], [0, 0], (p, t) => { seen.push([p[0], t]); return 0; }, 0.5, 1, [10, 14]);
+  assert.ok(seen.length > 0);
+  for (const [x, t] of seen) assert.ok(Math.abs(t - (10 + x)) < 1e-9, `x ${x} station ${t}`);
+});
+
+test('ribbonLift with stations lifts the same as the nearest-point search on a straight road', () => {
+  const pts = [[0, 0], [4, 0]], ridge = ([x, z]) => Math.max(0, 0.1 - Math.abs(z - 1) * 0.2) + 0.01 * x;
+  const byNearest = (p) => ridge(p), byStation = (p, t) => { assert.ok(t >= 0 && t <= 4 + 1e-9); return ridge([t, p[1]]); };
+  assert.deepEqual([...ribbonLift(QL, QR, [0, 0], [0, 0], byStation, 0.5, 1, [0, 4])], [...ribbonLift(QL, QR, [0, 0], [0, 0], byNearest)]);
+  assert.equal(nearestOnPolyline(pts, 2.5, 1).t, 2.5);
 });
 
 test('ribbonLift leaves a strip on a plane alone', () => {
@@ -1759,4 +1786,79 @@ test('rollingDrag_Wet_IgnoresTheVehicleBase', () => {
 
 test('rollingDrag_ForestFloor_AddsOnTopOfTheVehicleBase', () => {
   assert.equal(rollingDrag(false, 0.9, true, 3, 0.008), 0.008 + FOREST_FLOOR.drag);   // #1122
+});
+
+test('#1152 profileAt: stations every 4 m, the last at the full length', () => {
+  assert.equal(PROFILE_STEP, 4);
+  const zp = [0, 4, 8, 9.5];                       // len 9.5: stations 0, 4, 8, 9.5
+  assert.equal(profileAt(zp, 9.5, 2), 2);
+  assert.equal(profileAt(zp, 9.5, 8.75), 8.75);
+  assert.equal(profileAt(zp, 9.5, -3), 0);
+  assert.equal(profileAt(zp, 9.5, 20), 9.5);
+  assert.equal(profileAt([5], 0.5, 0.2), 5);
+});
+
+test('#1152 layoutFromWorld: a keep1952 piece reads its own stretch of the profile', () => {
+  const w = { roads: [{ id: 1, cls: 'residential', w: 5.5, pts: [[0, 0], [20, 0]], zp: [0, 4, 8, 12, 16, 20], keep1952: [[8, 20]] }], junctions: [], water: [], buildings: [], rail: [] };
+  const L = layoutFromWorld(w), kept = L.roads.find((r) => !r.modern);
+  assert.equal(kept.zpFrom, 8); assert.equal(kept.zpLen, 20);
+  assert.equal(roadProfileH(kept, 2), 10);
+  const plain = layoutFromWorld({ ...w, roads: [{ ...w.roads[0], keep1952: undefined }] }).roads[0];
+  assert.equal(plain.zpFrom, 0); assert.equal(plain.zpLen, 20);
+  assert.equal(layoutFromWorld({ ...w, roads: [{ id: 2, cls: 'service', w: 4, pts: [[0, 0], [5, 0]] }] }).roads[0].zpLen, undefined);
+});
+
+const FLAT_ROAD = { pts: [[0, 0], [100, 0]], w: 6, zp: Array.from({ length: 26 }, () => 10), zpFrom: 0, zpLen: 100 };
+const cands = (f) => f.pts.slice(0, -1).map((_, i) => ({ f, i }));
+
+test('#1152 roadFitAt: profile within the margin, 1:2 bank, 0 beyond outer', () => {
+  const m = 12, mg = fitMargin(4), f = fitRoad(FLAT_ROAD, () => m, mg);
+  assert.ok(Math.abs(mg - (4 * Math.SQRT2 + 0.5)) < 1e-9);
+  assert.equal(f.hw, 3);
+  assert.ok(Math.abs(f.outer - (3 + mg + Math.min(FIT.bank * 2.5, FIT.maxBank))) < 1e-9);
+  assert.equal(roadFitAt(cands(f), 50, 0, m, mg), -2);                       // cut to the profile on the axis
+  assert.equal(roadFitAt(cands(f), 50, 3 + mg, m, mg), -2);                  // and to the margin's edge
+  assert.ok(Math.abs(roadFitAt(cands(f), 50, 3 + mg + 2, m, mg) - -1) < 1e-9); // 1:2 bank: 1 m back up after 2 m
+  assert.equal(roadFitAt(cands(f), 50, f.outer + 1, m, mg), 0);
+  assert.equal(roadFitAt(cands(fitRoad(FLAT_ROAD, () => 9, mg)), 50, 0, 9, mg), 1);   // fill as well
+});
+
+test('#1152 roadFitAt: a deep cut keeps the band at the profile and banks back steeper, still 0 at outer', () => {
+  const mg = fitMargin(4), f = fitRoad(FLAT_ROAD, () => 40, mg), span = f.outer - f.hw - mg;
+  assert.equal(roadFitAt(cands(f), 50, 0, 40, mg), -30);                       // the carriageway reaches the profile, never truncated
+  assert.equal(roadFitAt(cands(f), 50, f.hw + mg, 40, mg), -30);               // and so does the margin's edge
+  assert.ok(Math.abs(roadFitAt(cands(f), 50, f.outer - 0.5, 40, mg)) <= 30 * 0.5 / span + 1e-9);   // linear to 0 at outer: no crack
+  assert.ok(Math.abs(roadFitAt(cands(f), 50, f.outer - 1e-9, 40, mg)) < 1e-6);
+});
+
+test('#1152 yieldWeight: 0 in and next to a yield cell, ramps to 1', () => {
+  const G = { x0: 0, z0: 0, dx: 16, dz: 16, nx: 100, nz: 100 }, cells = new Set(['10,10']);
+  assert.equal(yieldWeight(cells, G, 168, 168), 0);
+  assert.equal(yieldWeight(cells, G, 176 + 15, 168), 0);       // the ring cell
+  assert.ok(Math.abs(yieldWeight(cells, G, 176 + 16 + 8, 168) - 0.5) < 1e-9);
+  assert.equal(yieldWeight(cells, G, 176 + 16 + 16, 168), 1);
+  assert.equal(yieldWeight(new Set(), G, 5, 5), 1);
+});
+
+test('#1152 patchH: the mesh split of an n x n patch', () => {
+  const p = new Float32Array(25).map((_, k) => k);             // n = 4, row-major (n + 1)^2
+  assert.equal(patchH(p, 4, 0, 0), 0);
+  assert.equal(patchH(p, 4, 1, 1), 24);
+  assert.equal(patchH(p, 4, 0.125, 0), 0.5);
+});
+
+test('#1152 roadFitAt: two roads at different heights -> the ground takes the lower profile', () => {
+  const mg = fitMargin(4), low = { ...FLAT_ROAD, zp: FLAT_ROAD.zp.map(() => 10) };
+  const high = { pts: [[0, 6], [100, 6]], w: 6, zp: Array.from({ length: 26 }, () => 13), zpFrom: 0, zpLen: 100 };
+  const fl = fitRoad(low, () => 12, mg), fh = fitRoad(high, () => 12, mg), both = [...cands(fl), ...cands(fh)];
+  assert.equal(roadFitAt(both, 50, 6, 12, mg), -2);            // on the high road's axis, the low one still wins
+  assert.equal(roadFitAt(both, 50, 0, 12, mg), -2);
+});
+
+test('#1152 roadFitAt: on a grade the band is cut one sub-cell diagonal of fall deeper', () => {
+  const mg = fitMargin(4), up = { pts: [[0, 0], [100, 0]], w: 6, zpFrom: 0, zpLen: 100, zp: Array.from({ length: 26 }, (_, k) => 10 + 0.1 * 4 * k) };
+  const f = fitRoad(up, (x) => 20, mg), t = 50, sag = 0.1 * (mg - 0.5);
+  assert.ok(Math.abs(roadFitAt(cands(f), t, 0, 20, mg) - (10 + 0.1 * t - sag - 20)) < 1e-9);
+  const flat = fitRoad(FLAT_ROAD, () => 12, mg);                    // no grade, no sag
+  assert.equal(roadFitAt(cands(flat), 50, 0, 12, mg), -2);
 });

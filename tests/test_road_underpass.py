@@ -12,8 +12,10 @@ MMH = ROOT / "data" / "terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 RUTI = [[-871.0, 1071.3], [-876.8, 1120.3], [-879.7, 1149.8]]        # w31970306 + w31970308
 RUTI_DECKS = {51687867: (-873.4, 1091.4), 51688069: (-874.8, 1103.1)}
-SEATS = {51687867: (21.50, 21.21), 51688069: (21.10, 21.49), 107186388: (55.59, 54.56), 107186377: (54.33, 56.11),
-         4985551: (22.65, 23.75), 4988444: (21.93, 22.78), 25976772: (0.04, 0.04)}   # main, 2026-11-17
+SEATS = {51687867: (21.50, 21.21), 51688069: (21.10, 21.49), 4985551: (22.65, 23.75), 4988444: (21.93, 22.78),
+         25976772: (0.04, 0.04),   # main, 2026-11-17
+         # #1152: road on its profile, the Gartenstrasse bank roads seat these decks (was (55.59, 54.56) and (54.33, 56.11))
+         107186388: (54.89, 53.26), 107186377: (53.81, 55.80)}
 EXPECTED = 12
 # capped even with the deck and its bank roads kept out of the network: dropped, the site stays as on main
 DROPPED = {(345612508, 107186377): (3908.5, 4036.9), (345612508, 107186388): (3913.7, 4024.3),   # Gartenstrasse: footbridge w138786586 starts in the cut
@@ -108,7 +110,7 @@ def test_capped_crossings_are_dropped(server):
     print(r["cd"])
     for p, cd in zip(DROPPED.values(), r["cd"]):
         assert not [c for c in r["xs"] if near(c, p) and c["depth"] > 0], p
-        assert cd == 0, (p, cd)
+        assert cd < 1.0, (p, cd)   # #1152: road on its profile, the terrain fit lowers the ground by up to ~0.6 m here (was cd == 0); an underpass cut is metres deep
 
 
 @needs_world
