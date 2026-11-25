@@ -1570,7 +1570,7 @@ function fillTlmDecks(decks, surf) {
   for (const b of decks) { if (!b.tlmSamples || b.kind === 'wood' || b.kind === 'stone' || b.approach) continue;
     const p = b.r.pts, end = (k) => k ? p[p.length - 1] : p[0], joint = (k) => b.kind === 'generic' && !roadsFrom(end(k), new Set()).length,   // joined only to another bridge piece: no bank road to meet, the ground below may be a gorge
       at = (k) => { const sw = b.kind === 'rail' ? switchUnder(b, ...end(k)) : null; return sw ? bridgeSurfaceAt(sw.o, sw.t) : joint(k) ? b.tlmSamples[k ? b.tlmSamples.length - 1 : 0][1] : surf(...end(k)); };
-    b.h0 = at(0); b.h1 = at(1); b.prof = tlmProfile(b.tlmSamples, b.len, b.h0, b.h1); b.tlm = true; }
+    b.h0 = at(0); b.h1 = at(1); b.prof = tlmProfile(b.tlmSamples, b.len, b.h0, b.h1); b.tlmJoint = [joint(0), joint(1)]; b.tlm = true; }
 }
 // #1196: a TLM rail deck's ends lie on the measured embankment, not the 16 m mesh: one fine centre per end (ends closer than 4 m share one),
 // so fillTlmDecks reads the ground the 1 m patches draw. Built before the deck ends are read.
@@ -6082,7 +6082,7 @@ window.__mm.roadCrossings = () => ROAD_CUTS.map(c => {
   return { x: c.x, z: c.z, road: c.road.n, roadId: c.road.id, deckId: c.deck.r.id, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind },
            tlm: !!c.deck.tlm, tlmRoad: c.tlmRoad ?? null, deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
 });
-window.__mm.tlmDecks = () => OSM_BRIDGES.filter((b) => b.tlm).map((b) => { const p = b.r.pts; return { kind: b.kind === 'rail' ? 'rail' : 'road', id: b.r.id ?? null, pts: p, h0: b.h0, h1: b.h1, prof: b.prof, endGround: [terrainH(...p[0]), terrainH(...p[p.length - 1])] }; });
+window.__mm.tlmDecks = () => OSM_BRIDGES.filter((b) => b.tlm).map((b) => { const p = b.r.pts; return { kind: b.kind === 'rail' ? 'rail' : 'road', id: b.r.id ?? null, pts: p, h0: b.h0, h1: b.h1, prof: b.prof, endGround: [terrainH(...p[0]), terrainH(...p[p.length - 1])], joint: b.tlmJoint }; });
 window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
 // #1044: the road cuts' arms (the cut road itself included): its road, polyline, half width, floor at the crossing and lowered span
 window.__mm.roadArms = () => ARMS.filter((a) => a.roadCut).map((a) => ({ road: a.road.id, pts: a.pts, hw: a.hw, f0: a.f0, span: armSpan(a), bounds: a.bounds }));
