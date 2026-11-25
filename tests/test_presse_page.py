@@ -27,3 +27,9 @@ def test_presse_page_a_click_on_a_picture_shows_it_large_not_a_download():
     pictures = re.findall(r'<figure><a ([^>]*)><img', text)
     assert pictures and all('class="zoom"' in a and "download" not in a for a in pictures)
     assert 'id="lightbox"' in text
+
+
+def test_presse_page_offers_every_player_screenshot():
+    text = PAGE.read_text(encoding="utf-8")
+    shots = sorted(p.name for p in (ROOT / "docs" / "gallery" / "spieler").glob("*.jpg"))
+    assert shots and [n for n in shots if f'../docs/gallery/spieler/{n}" download' not in text] == []
