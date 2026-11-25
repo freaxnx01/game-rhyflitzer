@@ -1048,7 +1048,7 @@ import { offerJoin, listenForJoin } from './joinhandoff.js';   // #1111: an invi
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, finishHeld, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
-import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps, knockAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); netClockOffset: ferrisride.js already owns `clockOffset`
+import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps, knockAllowed, pontoonAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); #1190: pontoonAllowed, the host's lay/take gate; netClockOffset: ferrisride.js already owns `clockOffset`
 import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, BUMP_DY, HIT_WINDOW } from './netbump.js';   // #836: car-to-car contact in a shared drive
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
@@ -1118,7 +1118,7 @@ import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, p
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, plattformOnDeck, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, SIDE, sideOffsets, sideTarget, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
-import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
+import { PONTOON_CFG, atRhineBank, crossingLine, deckToWire, deckFromWire, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';   // #1190: deckToWire/deckFromWire, the deck's wire form for the multiplayer sync
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, forwardSpeed, frontAxleX, plantedWheelY } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
@@ -5850,7 +5850,9 @@ function footCamera(dt) { const steady = !FOOT.hover && FOOT.vy === 0 && !LIFT_R
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
-function pressPontoon() { if (!$('overlay').hidden || FLY.on) return; if (PONTOON.deck) { if (!nearDeck(PONTOON.deck, P.x, P.z)) return; PONTOON.deck = togglePontoon(PONTOON.deck); toast(tr(PONTOON.deck.dir > 0 ? 'pontoonBuilding' : 'pontoonRemoving'), TOAST_S.event); return; } const line = crossingLine(pontoonEnv(), P.x, P.z); if (line.error) { PONTOON.error = line.error; toast(tr(PONTOON_ERR[line.error])); return; } PONTOON.error = null; PONTOON.deck = line; buildPontoonMeshes(line); toast(tr('pontoonBuilding'), TOAST_S.event); }
+// #1190: in a session a guest does not build itself -- it asks the host and waits for the sync (A6, one round trip), so
+// two lay requests can never build two bridges. The host (also a player) applies locally and broadcasts.
+function pressPontoon() { if (!$('overlay').hidden || FLY.on) return; const guest = NET.session && NET.link && NET.role === 'G'; if (PONTOON.deck) { if (!nearDeck(PONTOON.deck, P.x, P.z)) return; if (guest) { NET.link.send(HOST_ID, { type: 'pontoon', op: 'take' }); return; } PONTOON.deck = togglePontoon(PONTOON.deck); toast(tr(PONTOON.deck.dir > 0 ? 'pontoonBuilding' : 'pontoonRemoving'), TOAST_S.event); } else { const line = crossingLine(pontoonEnv(), P.x, P.z); if (line.error) { PONTOON.error = line.error; toast(tr(PONTOON_ERR[line.error])); return; } PONTOON.error = null; if (guest) { NET.link.send(HOST_ID, { type: 'pontoon', op: 'lay', d: deckToWire(line) }); return; } PONTOON.deck = line; buildPontoonMeshes(line); toast(tr('pontoonBuilding'), TOAST_S.event); } if (NET.session && NET.link) netBroadcastPontoon(); }
 function stepPontoonWorld(dt) { if (!PONTOON.deck) return; PONTOON.deck = stepPontoon(PONTOON.deck, dt); if (!PONTOON.deck) { freePontoon(); return; } updatePontoonMeshes(PONTOON.deck); }
 window.__mm.pontoon = () => { const d = PONTOON.deck, prompt = pontoonPrompt(d, !FLY.on && atRhineBank(pontoonEnv(), P.x, P.z), nearDeck(d, P.x, P.z)); return d ? { on: true, built: d.built, dir: d.dir, len: d.len, a: { x: d.a[0], z: d.a[1] }, b: { x: d.b[0], z: d.b[1] }, bOnRoad: roadDist(d.b[0], d.b[1]) <= 0, deckH: d.deckH, nBays: d.nBays, prompt, error: PONTOON.error } : { on: false, prompt, error: PONTOON.error }; };
 window.__mm.pontoonSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepPontoonWorld(1 / 60); return window.__mm.pontoon(); };
@@ -5872,6 +5874,19 @@ function buildPontoonMeshes(d) {
 }
 function updatePontoonMeshes(d) { if (!PONTOON.group) return; PONTOON.group.children.forEach((bay, i) => { bay.visible = bayVisible(d, i); bay.position.y = bayDrop(d, i); }); }
 function freePontoon() { if (!PONTOON.group) return; PONTOON.group.traverse(o => o.geometry?.dispose()); scene.remove(PONTOON.group); PONTOON.group = null; }
+// #1190: adopt the host's pontoon sync -- the guest's world becomes the host's, whatever it had (a fresh line rebuilds
+// the meshes, the same line only updates built/dir). Each device runs its own stepPontoonWorld from there (A4).
+function adoptPontoon(w) {
+  if (!w) { PONTOON.deck = null; freePontoon(); return; }
+  const deck = deckFromWire(w), had = PONTOON.deck;
+  const sameLine = had && had.a[0] === deck.a[0] && had.a[1] === deck.a[1] && had.b[0] === deck.b[0] && had.b[1] === deck.b[1];
+  if (sameLine) { PONTOON.deck = { ...had, built: deck.built, dir: deck.dir }; updatePontoonMeshes(PONTOON.deck); }
+  else { PONTOON.deck = deck; buildPontoonMeshes(deck); }
+  if (!had || had.dir !== deck.dir) toast(tr(deck.dir > 0 ? 'pontoonBuilding' : 'pontoonRemoving'), TOAST_S.event);   // a bridge appeared, or its direction flipped
+}
+// #1190: the host's pontoon state to everyone in the session -- at a lay, a take and the drive's start (A2: late joiners)
+function netBroadcastPontoon() { for (const peerId of NET.slots.keys()) netSendPontoon(peerId); }
+function netSendPontoon(peerId) { NET.link.send(peerId, { type: 'pontoon', op: 'sync', ...(PONTOON.deck ? { d: deckToWire(PONTOON.deck) } : {}) }); }
 function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z), room = LEVELS.isSurface() ? null : currentRoom(), input = heliInput(keys, touch);
   const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, vy: FLY.vy, pitch: FLY.pitch, roll: FLY.roll, assist: FLY.assist }, input, dt, ground, floor, HELI, room ? roomFlyCeiling(room.fly, room.y) : ground + HELI.maxAgl);
   P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.vy = s.vy; FLY.pitch = s.pitch; FLY.roll = s.roll; FLY.assist = s.assist; FLY.t += dt; FLY.load = heliLoad(s.v, s.vy, input);
@@ -7068,6 +7083,13 @@ function netHostMessage(peerId, msg) {
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
   if (msg.type === 'knock') { if (!knockAllowed(knockSeen, id, msg.k !== undefined ? msg.k + '#' + msg.i : msg.s, performance.now())) { NET.bad++; return; } netFallKnock(msg); netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, knockMsg(msg.s, msg.l, msg, id)); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose); #1179: the host's own per-slot, per-sound gate drops a flood before it is played or relayed; #1191: gated per prop, so a pile reaches everyone
+  if (msg.type === 'pontoon') {   // #1190: the host holds the truth -- one lay while none stands (as locally), one take while one stands (anyone's, A1), a guest's sync is never an input
+    if (msg.op === 'sync' || !pontoonAllowed(pontoonSeen, id, performance.now())) { NET.bad++; return; }
+    if (msg.op === 'lay' && !PONTOON.deck) { PONTOON.deck = deckFromWire(msg.d); buildPontoonMeshes(PONTOON.deck); toast(tr('pontoonBuilding'), TOAST_S.event); }
+    else if (msg.op === 'take' && PONTOON.deck) { PONTOON.deck = togglePontoon(PONTOON.deck); toast(tr(PONTOON.deck.dir > 0 ? 'pontoonBuilding' : 'pontoonRemoving'), TOAST_S.event); }   // A11: no occupancy check -- a deck under a car comes down on purpose
+    else return;                                             // a second lay while one stands, a take with none: nothing changes
+    netBroadcastPontoon(); return;
+  }
   if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
   if (msg.type === 'finish') { if (NET.race?.state && NET.race.go) netHostFinish(id, raceMs(), peerId); return; }   // #837 part d: the finish is stamped from the host's clock too
   if (msg.type === 'pick') {
@@ -7101,6 +7123,7 @@ function netHostDrop(peerId) {
 }
 function netGuestMessage(msg) {
   if (msg.type === 'knock') { if (msg.id !== undefined && msg.id !== NET.you && NET.lobby?.players.some((p) => p.id === msg.id)) { netFallKnock(msg); netHearKnock(msg.id, msg.s, msg.l); } else NET.bad++; return; }   // #1112: a knock arrives only through the host, and only with its stamped id of another player
+  if (msg.type === 'pontoon') { if (msg.op === 'sync') adoptPontoon(msg.d ?? null); else NET.bad++; return; }   // #1190: the pontoon bridge arrives only through the host's sync -- a lay/take a guest receives is not its to apply
   if (msg.type === 'lobby') { stopHello(); NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
@@ -7359,12 +7382,13 @@ function netStartSession(mode = 'cruise', t0 = null) {
   syncNetCars();
   NET.poseTimer = setInterval(netSendPose, POSE_MS);
   if (NET.race?.state) netRaceBoard();   // #837 part c: every HUD shows its start position
+  if (NET.role === 'H') netBroadcastPontoon();   // #1190: the drive starts with the host's bridge, a guest's own leftover one is replaced
 }
 // leaves the shared drive: the timers stop and every remote car is taken off the scene. The run itself keeps going.
 function netEndSession() {
   clearInterval(NET.poseTimer);
   for (const id of [...NETCARS.keys()]) dropNetCar(id);
-  knockSentAt = {}; knockSeen = {};   // #1112/#1179: a fresh session does not inherit the last drive's knock gates
+  knockSentAt = {}; knockSeen = {}; pontoonSeen = {};   // #1112/#1179/#1190: a fresh session does not inherit the last drive's knock and pontoon gates
   BUMP.gate.clear(); BUMP.seen.clear(); BUMP.local.clear(); BUMP.inbox.length = 0; BUMP.out.length = 0;   // #836: a fresh session does not inherit the last drive's cooldowns or hits
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; document.body.classList.remove('mpdone'); $('pauserestart').hidden = false;
@@ -7523,6 +7547,7 @@ function netHearHorn(entry, id) { const g = netGainTo(id); if (g < 0.02) return;
 function netHearKnock(id, s, l) { const g = netGainTo(id); if (g < 0.02) return; SFX.knock(s, l * g); NETHEARD.knock++; NETHEARD.last = { kind: s, id, g }; }
 let knockSentAt = {};
 let knockSeen = {};   // #1179: the host's per-slot knock gate (#1191: keyed per sound, or per prop)
+let pontoonSeen = {};   // #1190: the host's per-slot pontoon lay/take gate
 function netSendKnock(s, l, prop) {
   if (!NET.session || !NET.link) return;
   const now = performance.now();
