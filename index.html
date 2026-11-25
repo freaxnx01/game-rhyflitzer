@@ -1735,12 +1735,26 @@ const patchCuts = () => HIDE ? [...ARMS, ...HIDE.cuts.filter((c) => c.depth > 0)
 // under a short deck is most of it (the A3 over the Rütistrasse: 7.5 m of 19) and kept the bank's ground in the trough's wall band
 const onBank = (x, z, guards) => guards.some((g) => { const n = nearestOnPolyline(g.pts, x, z); return n.t > 1e-9 && n.d <= g.hw + 0.5; });
 const inGuardBleed = (x, z, guards) => guards.some((g) => { const n = nearestOnPolyline(g.ext, x, z); return n.t > 1e-9 && n.d <= g.hw + PATCH_BLEED; });
+const WALL_SLACK = 0.28;   // see the trough walls (#156): how far short of another road's corridor a wall run stops
+// #1202: a road cut's wall stands nowhere its centre line would lie in another road's corridor (the runs stop there, as for the trough
+// walls below; the decks and bank roads of every road cut on the same road pass); outside its own corridor the cut lowers nothing
+// there either, or no wall retains the face
+const ROAD_CUT_PASS = new Map();   // road -> the decks and bank roads of its road-cut arms, as the trough walls' `pass`
+function roadCutPass(road) {
+  if (!ROAD_CUT_PASS.has(road)) ROAD_CUT_PASS.set(road, new Set(ARMS.filter((b) => b.roadCut && b.road === road).flatMap((b) => [b.deck.r, ...b.guards.map((g) => g.road)])));
+  return ROAD_CUT_PASS.get(road);
+}
+function wallBlocked(a, x, z) {
+  const n = nearestOnPolyline(a.pts, x, z), inner = a.hw + UNDERPASS.margin; if (n.d <= inner) return false;
+  const [qx, qz] = pointAtLength(a.pts, n.t), k = (inner + UNDERPASS.wall / 2) / n.d, wx = qx + (x - qx) * k, wz = qz + (z - qz) * k, pass = roadCutPass(a.road);
+  return [...gridQuery(ROAD_GRID, wx, wz, 8)].some(({ r, i }) => r !== a.road && !pass.has(r) && segDist(wx, wz, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
+}
 function cutFloorMin(x, z) {
   let f = Infinity;
   for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue;
     // #1044: a bank road outside the trough keeps its ground, and so does every patch vertex whose triangles reach its ribbon, inside the
     // trough too -- every road cut's bank roads, not just its own deck's (Zürcherstrasse's cut under w4988444 runs on under w4985551's bank)
-    if (a.roadCut && ((onBank(x, z, ROAD_GUARDS) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) || inGuardBleed(x, z, ROAD_GUARDS))) continue;
+    if (a.roadCut && ((onBank(x, z, ROAD_GUARDS) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) || inGuardBleed(x, z, ROAD_GUARDS) || wallBlocked(a, x, z))) continue;
     const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
@@ -3009,10 +3023,9 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // its own, and both of two tracks side by side (Koenigsweg, 3.8 m apart on 5.5 m wide decks): the piece is under the lowest
   // #1044: decks = RAIL_DECKS, plus the road decks over a road-cut piece
   const decksOver = (x, z, half, decks = RAIL_DECKS) => decks.map((deck) => ({ deck, n: nearestOnPolyline(deck.r.pts, x, z) })).filter(({ deck, n }) => n.d <= deck.hw + half);
-  // review of #156: the run stops WALL_SLACK short of the other road's wall face, so no piece end reaches into that road's
-  // corridor; wallSpans finds that point to the centimetre, so the slack is also the whole notch left open at the corner (under
+  // review of #156: the run stops WALL_SLACK (declared by cutFloorMin) short of the other road's wall face, so no piece end reaches into that
+  // road's corridor; wallSpans finds that point to the centimetre, so the slack is also the whole notch left open at the corner (under
   // the 0.3 m a wall covers in __mm.openCutFaces)
-  const WALL_SLACK = 0.28;
   // #1044: pass = roads a run goes on through (a road cut's decks and their bank roads: the trough runs on under the deck, the bank road keeps its ground)
   const otherRoad = (road, pass) => (x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && !pass.has(r) && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
   const byRoad = new Map(); for (const a of ARMS) { if (!byRoad.has(a.road)) byRoad.set(a.road, []); byRoad.get(a.road).push(a); }
