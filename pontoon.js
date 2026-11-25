@@ -66,6 +66,17 @@ export function crossingLine(env, x, z, cfg = PONTOON_CFG) {
   return { a, b, len, ux: u[0], uz: u[1], hw: cfg.hw, deckH, hNear, hFar, rampNear, rampFar, nBays: Math.ceil(len / cfg.bay), built: 0, dir: 1 };
 }
 
+// #1190: the wire form of a deck -- only what cannot be re-derived: the two ends, the three heights, the two ramps and
+// the build state, rounded to 2 decimals. The receiver derives len, ux, uz, hw and nBays itself (deckFromWire), so they cannot disagree with a and b.
+export function deckToWire(d) {
+  const r2 = (v) => Math.round(v * 100) / 100;
+  return { a: [r2(d.a[0]), r2(d.a[1])], b: [r2(d.b[0]), r2(d.b[1])], h: [r2(d.deckH), r2(d.hNear), r2(d.hFar)], r: [r2(d.rampNear), r2(d.rampFar)], built: r2(d.built), dir: d.dir };
+}
+export function deckFromWire(w, cfg = PONTOON_CFG) {
+  const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
+  return { a: [...w.a], b: [...w.b], len, ux: (w.b[0] - w.a[0]) / len, uz: (w.b[1] - w.a[1]) / len, hw: cfg.hw, deckH: w.h[0], hNear: w.h[1], hFar: w.h[2], rampNear: w.r[0], rampFar: w.r[1], nBays: Math.ceil(len / cfg.bay), built: w.built, dir: w.dir };
+}
+
 // (t along the deck from a, s to the right of it)
 export function pontoonLocal(d, x, z) { const dx = x - d.a[0], dz = z - d.a[1]; return [dx * d.ux + dz * d.uz, -dx * d.uz + dz * d.ux]; }
 // surface height at t: linear from hNear up/down to deckH over rampNear, flat, linear to hFar over rampFar; clamped to the ends (no extrapolation)
