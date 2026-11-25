@@ -40,6 +40,17 @@ export function knockAllowed(seen, slot, key, now) {
   return true;
 }
 
+// ---- #1190: the host's own gate on a pontoon lay/take ----
+export const PONTOON_GAP_MS = 250;  // ms: the same gap for a lay and a take, so a toggle spam cannot flood the star
+// pontoonAllowed(seen, slot, now) — true (and records now) if this slot's pontoon press is at least PONTOON_GAP_MS
+// after the last accepted one. `seen` is the caller's plain object; a refused press is not recorded.
+export function pontoonAllowed(seen, slot, now) {
+  if (!Number.isFinite(now)) return false;
+  if (now - (seen[slot] ?? -Infinity) < PONTOON_GAP_MS) return false;
+  seen[slot] = now;
+  return true;
+}
+
 // ---- clock ----
 // addClockSample(samples, a, b, c) — one ping/pong round: a = send time, b = host clock, c = receive time (guest ms).
 // Returns a new array holding the last CLOCK_N offsets; never mutates the one it is given. A round trip longer than
