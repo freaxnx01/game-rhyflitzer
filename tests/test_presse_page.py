@@ -33,3 +33,8 @@ def test_presse_page_offers_every_player_screenshot():
     text = PAGE.read_text(encoding="utf-8")
     shots = sorted(p.name for p in (ROOT / "docs" / "gallery" / "spieler").glob("*.jpg"))
     assert shots and [n for n in shots if f'../docs/gallery/spieler/{n}" download' not in text] == []
+
+
+def test_presse_page_links_the_nfz_article():
+    text = PAGE.read_text(encoding="utf-8")
+    assert '<a href="https://www.nfz.ch/mit-dem-rhyflitzer-wird-das-fricktal-zur-spielwelt">' in text
