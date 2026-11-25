@@ -1030,7 +1030,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, embankAt, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, roadwayGround, armTail, tlmNoCut, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, embankAt, EMBANK, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, roadwayGround, armTail, tlmNoCut, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
 import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
@@ -1584,16 +1584,26 @@ function railEndCentres() {
 // #1202: the TLM rail decks, filled before the fine patches are drawn, so patchGround can raise their embankment (embankFill)
 const EMBANK_DECKS = [];
 function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); fillTlmDecks(RAIL_DECKS, terrainH); EMBANK_DECKS.push(...RAIL_DECKS.filter((b) => b.tlm).map((b) => ({ b: { pts: b.r.pts, len: b.len, hw: b.hw, prof: b.prof }, box: deckBox(b, EMBANK_REACH) }))); addFineCentres(railEndCentres(), TLM_FINE.r); fillTlmDecks(OSM_BRIDGES, terrainH); buildStoneChain(); }
-// #1202: the embankment under and around the TLM rail decks (embankAt), never on a road or its trough (face + wall) -- the cut's walls retain it there
+// #1202: the embankment under and around the TLM rail decks (embankAt), never on a road or its trough (face + wall). Along a cut arm's
+// span the arm's walls retain it: it starts where the arm's lowering ends (lat), inside the wall, as the cut's own patches do. Beside any
+// other road it falls from `ground` at the trough's edge at EMBANK.fall, so no bare face opens. ARMS is empty until buildCuts, which
+// draws every fine cell again once they exist.
 const EMBANK_REACH = 20;
 function deckBox(b, m) { const xs = b.r.pts.map((p) => p[0]), zs = b.r.pts.map((p) => p[1]); return [Math.min(...xs) - m, Math.min(...zs) - m, Math.max(...xs) + m, Math.max(...zs) + m]; }
-function embankFill(x, z) {
+function embankFill(x, z, ground) {
   let f = -Infinity;
   for (const { b, box } of EMBANK_DECKS) if (x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3]) f = Math.max(f, embankAt(b, x, z));
   if (f === -Infinity) return f;
-  for (const { r, i } of gridQuery(ROAD_GRID, x, z, 8)) if (!r.bridge && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + UNDERPASS.wall) return -Infinity;
+  for (const { r, i } of gridQuery(ROAD_GRID, x, z, 16)) { if (r.bridge) continue;
+    const d = segDist(x, z, ...r.pts[i], ...r.pts[i + 1]);
+    const arm = walledArm(r, x, z); if (arm) { if (d < arm.lat) return -Infinity; continue; }
+    const off = d - (r.w / 2 + UNDERPASS.margin + UNDERPASS.wall); if (off < 0) return -Infinity;
+    f = Math.min(f, ground + off * EMBANK.fall); }
   return f;
 }
+// the cut arm on road r whose span (ramps and tails) reaches the point's foot on r, if any
+const walledArm = (r, x, z) => ARMS.find((a) => { if (a.road !== r) return false; const t = nearestOnPolyline(a.pts, x, z).t, [t0, t1] = armSpan(a); return t >= t0 && t <= t1; });
+
 // #42: inside a grade's band (the track fan over the Südspange cutting) a deck end lying on another deck is a switch: it
 // takes that deck's surface, not the ground's, so the fan is one level slab (two passes for a switch on a switch)
 const inGradeBand = (x, z) => !!L && L.grades.some((g) => nearestOnPolyline(g.pts, x, z).d < g.hw + GRADE_BAND);
@@ -1649,7 +1659,7 @@ function addFineCentres(centres, r) {
 // the centre that weighs most at (x, z) supplies the ground (the nearest, where a bank and a rail end overlap, would not match the weight)
 function fineGroundAt(x, z) { let best = null, bw = -1; for (const c of FINE_BANKS) { const w = fineWeight(x, z, [c]); if (w > bw) { bw = w; best = c; } } return best.ground(x, z); }
 // the ground a cut or wall measures as "before the cut": the grade-lowered mesh, with the fine patches' measured ground blended in
-function patchGround(x, z) { const g = gradedH(x, z); if (!FINE_BANKS.length) return g; const w = fineWeight(x, z, FINE_BANKS); if (!w) return g; const f = g + w * (fineGroundAt(x, z) - meshH(x, z)); return f + w * Math.max(0, embankFill(x, z) - f); }   // #1202: plus the TLM rail embankment
+function patchGround(x, z) { const g = gradedH(x, z); if (!FINE_BANKS.length) return g; const w = fineWeight(x, z, FINE_BANKS); if (!w) return g; const f = g + w * (fineGroundAt(x, z) - meshH(x, z)); return f + w * Math.max(0, embankFill(x, z, f) - f); }   // #1202: plus the TLM rail embankment
 const uncutH = patchGround;
 const PATCH_BLEED = Math.SQRT2 * Math.max(TGRID.dx, TGRID.dz) / CUT_N;   // #156: how far a patch's triangles carry one lowered vertex
 function terrainH(x, z) {
@@ -1781,6 +1791,9 @@ function buildCuts() {
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
+  // #1202: the TLM embankment knows its walls only now (embankFill reads ARMS): its fine cells once more
+  for (const key of FINE_KEYS) { const [i, j] = key.split(',').map(Number), x0 = G.x0 + i * G.dx, z0 = G.z0 + j * G.dz;
+    if (EMBANK_DECKS.some(({ box }) => x0 <= box[2] && x0 + G.dx >= box[0] && z0 <= box[3] && z0 + G.dz >= box[1])) CUT_CELLS.set(key, fillCell(i, j).p); }
 }
 if (L) buildCuts();
 // #1152: every profiled road's fit, in FIT_N patches; cells the 1 m patches own (and the cave) yield

@@ -85,11 +85,11 @@ test('tlmNoCut_roadAlreadyWithinToleranceOfTheMeasuredOne', async () => {
 });
 // #1202: the embankment the bare-earth DTM lost under a TLM rail deck
 const DECK = { pts: [[0, 0], [20, 0]], len: 20, hw: 2.75, prof: [[0, 10], [20, 12]] };
-test('embankAt_underTheDeck_reachesTheUnderside', () => {
-  close(embankAt(DECK, 10, 1), 11 - UNDERPASS.deck);
+test('embankAt_alongTheSpan_staysALipUnderTheSurface', () => {
+  close(embankAt(DECK, 10, 1), 11 - EMBANK.lip);
 });
-test('embankAt_besideTheDeck_fallsFromTheSurface', () => {
-  close(embankAt(DECK, 10, DECK.hw + 3), 11 - 3 * EMBANK.fall);
+test('embankAt_besideTheSpan_fallsFromTheLip', () => {
+  close(embankAt(DECK, 10, DECK.hw + 3), 11 - EMBANK.lip - 3 * EMBANK.fall);
 });
 test('embankAt_pastAnEnd_carriesTheEndSurfaceRunOn', () => {
   close(embankAt(DECK, -2, 0), 10); close(embankAt(DECK, 20 + EMBANK.run, 0), 12);
@@ -97,4 +97,7 @@ test('embankAt_pastAnEnd_carriesTheEndSurfaceRunOn', () => {
 test('embankAt_pastTheRun_falls', () => {
   close(embankAt(DECK, -EMBANK.run - 4, 0), 10 - 4 * EMBANK.fall);
   close(embankAt(DECK, 20 + EMBANK.run + 2, DECK.hw + 1), 12 - 3 * EMBANK.fall);
+});
+test('embankAt_nearAnEnd_easesTheLipIn', () => {
+  close(embankAt(DECK, 0.5, 0), 10.05 - EMBANK.lip / 2);
 });
