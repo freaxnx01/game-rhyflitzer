@@ -18,6 +18,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-25 21:11` Im **Mehrspieler** genügt jetzt ein **Raumcode** wie `RHY-4827` für alle: Der Gastgeber nennt ihn, die Freunde tippen ihn ein und sind verbunden. Ist der **Vermittler** nicht erreichbar, geht es wie bisher über **Ohne Server verbinden**.
 - `2026-11-25 19:20` Im **Mehrspieler** sehen jetzt alle Spieler die **Pontonbrücke** (<kbd>U</kbd>) und können darüber fahren. Jeder darf sie legen oder wieder entfernen — auch wenn gerade jemand darauf fährt.
 - `2026-11-25 15:54` Im **Mehrspieler** fällt ein Objekt, das ein anderer Spieler **umfährt**, jetzt auch bei Dir um und steht später wieder auf.
 - `2026-11-24 19:07` Grundlage für echte **Brückenhöhen**: Das Spiel bringt jetzt die Brücken und Unterführungen der ganzen Schweiz aus **swissTLM3D** © swisstopo mit, samt der gemessenen Höhe dessen, was darunter durchführt. Zu sehen ist davon noch nichts — die Bahn- und Strassenbrücken werden erst in einem nächsten Schritt darauf gesetzt.

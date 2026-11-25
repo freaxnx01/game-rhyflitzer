@@ -2,7 +2,11 @@
 exactly what two players do by chat. ?netice=none drops STUN, so the whole handshake stays on loopback and the test
 needs no internet; --disable-features=WebRtcHideLocalIpsWithMdns keeps the host candidates readable addresses.
 Hand-traced layout (world + terrain blocked): no data files needed.
+#1198: every context stubs the signaling relay away (refuse_relay closes it on its first frame), so these tests still
+exercise the manual code exchange and never reach a live relay; `connect` clicks "Connect without server" to get to it.
 Slow (Playwright): run in the foreground."""
+import re
+
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -10,14 +14,25 @@ ARGS = [
     "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist",
     "--disable-features=WebRtcHideLocalIpsWithMdns",
 ]
+RELAY = re.compile(r"^wss://relay\.freaxnx01\.ch")   # #1198: the one relay url the game knows (index.html RELAY_URL)
 READY = "() => window.__mm && window.__mm.sim && window.__mm.net && document.querySelector('#worldstatus')?.textContent"
 T = 120000
 
 
-def open_page(browser, server, init=None):
+def refuse_relay(ws):
+    """#1198: the default relay stub -- the game's first frame is answered by closing the socket, so the game sees the
+    relay go away ("Matchmaker unreachable") and never reaches the real one. Nothing in here may call a Playwright method
+    directly: the route handler runs on Playwright's own dispatcher, and a sync call there (`ws.close()`) spins forever
+    and freezes every page and timeout of the test (PR#1228: the browser job ran into its 30 min limit). Calls inside
+    `on_message` are fine, they run like any other event handler."""
+    ws.on_message(lambda _frame: ws.close())
+
+
+def open_page(browser, server, init=None, relay=None):
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
     if init:
         ctx.add_init_script(init)
+    ctx.route_web_socket(RELAY, relay or refuse_relay)   # #1198: no test ever talks to the real relay
     page = ctx.new_page()
     page.set_default_timeout(T)   # two heavy pages in one browser: the background one settles slowly, so let clicks block
     errors = []
@@ -46,12 +61,14 @@ def connect(host, guest, named=True):
     host.click("#mpbtn")
     if named: host.fill("#mpname", "Anna")
     host.click("#mphostbtn")
+    host.click("#mpmanual")   # #1198: the room code is the default way now; this is the manual one
     host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R4H.')", timeout=T)
     host_code = host.input_value("#mpcode")
 
     guest.click("#mpbtn")
     if named: guest.fill("#mpname", "Ben")
     guest.click("#mpguestbtn")
+    guest.click("#mpmanual")
     guest.fill("#mpin", host_code)
     guest.click("#mpmake")
     guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R4G.')", timeout=T)
@@ -155,7 +172,7 @@ def test_garbage_on_the_channel_is_counted_and_a_lost_host_sends_the_guest_home(
 
 def test_join_link_prefills_the_guest_and_waits_for_the_click(pair, server):
     host, guest, errors = pair
-    host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn")
+    host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn"); host.click("#mpmanual")
     host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R4H.')", timeout=T)
     code = host.input_value("#mpcode")
     # a stub, not the real clipboard: a page served from a LAN address is no secure context, so navigator.clipboard is missing there
@@ -182,7 +199,7 @@ def test_default_names_are_filled_and_unique(pair):
 def test_dice_rolls_a_name_and_forgets_the_typed_one(pair):
     """#1002: the dice replaces a typed name with a pool name and forgets the stored one."""
     host, guest, errors = pair
-    host.click("#mpbtn"); host.fill("#mpname", "p1"); host.click("#mphostbtn")
+    host.click("#mpbtn"); host.fill("#mpname", "p1"); host.click("#mphostbtn"); host.click("#mpmanual")
     host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R4H.')", timeout=T)
     host.reload(); host.wait_for_function(READY, timeout=240000)
     host.click("#mpbtn")
