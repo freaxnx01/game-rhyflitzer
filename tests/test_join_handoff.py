@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import sync_playwright
 
 from test_multiplayer_cruise import NO_THROTTLE
-from test_multiplayer_lobby import ARGS, READY, T, net, open_page
+from test_multiplayer_lobby import ARGS, READY, RELAY, T, net, open_page
 
 JOINED_ELSEWHERE = "Joined in your other tab"   # mpJoinedElsewhere -- the pages run with locale="en-US"
 JOIN_RECEIVED = "Invitation received"           # mpJoinReceived
@@ -35,7 +35,7 @@ def make_code(browser, server):
     """A third page, in a context of its own, hosts and makes a real invite code; the test carries it like a chat.
     The page closes once the code is out: the handoff below must not fight a third heavy page for the CPU."""
     host, _ = open_page(browser, server)
-    host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn")
+    host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn"); host.click("#mpmanual")
     host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R4H.')", timeout=T)
     code = host.input_value("#mpcode")
     host.close()
@@ -47,6 +47,7 @@ def tabs_fixture(server):
     with sync_playwright() as p:
         browser = p.chromium.launch(args=ARGS + NO_THROTTLE)
         ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+        ctx.route_web_socket(RELAY, lambda ws: ws.close())   # #1198: the relay is stubbed away; these tests are about the manual code
         yield browser, ctx
         browser.close()
 
@@ -83,7 +84,7 @@ def test_openTabAlreadyInSession_newTabJoinsItself(tabs, server):
     """A tab busy hosting never answers, so the new tab fills its own guest screen; the host stays untouched."""
     browser, ctx = tabs
     a, a_errors = open_tab(ctx, f"{server}/index.html?netice=none")
-    a.click("#mpbtn"); a.fill("#mpname", "Anna"); a.click("#mphostbtn")
+    a.click("#mpbtn"); a.fill("#mpname", "Anna"); a.click("#mphostbtn"); a.click("#mpmanual")
     a.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R4H.')", timeout=T, polling=500)
     code = a.input_value("#mpcode")
     assert net(a)["role"] == "H"
