@@ -124,3 +124,23 @@ test('sendPose_openPoseChannel_sendsTheRecordOtherwiseSilentlySkips', async () =
     assert.equal(pose.sent.length, 1);
   } finally { mock.timers.reset(); }
 });
+
+// #1190: a message the browser had already queued when the link closed the peer is still dispatched afterwards
+// (measured: the host's pose seq 58 reached a guest that had just left, role and lobby already null -> NET.bad 1).
+// A closed peer delivers nothing more, on either channel.
+test('attachChannel_peerClosed_queuedMessagesAreDropped', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    CHANNELS.length = 0;
+    const got = { msg: [], pose: [] };
+    const link = createLink({ onMessage: (id, d) => got.msg.push([id, d]), onPose: (id, d) => got.pose.push([id, d]) });
+    await link.hostOffer();
+    const ev = CHANNELS.find((c) => c.label === 'ev'), pose = CHANNELS.find((c) => c.label === 'pose');
+
+    link.closeAll();
+    ev.dispatchEvent(new MessageEvent('message', { data: '{"type":"ping","a":1}' }));
+    pose.dispatchEvent(new MessageEvent('message', { data: new ArrayBuffer(36) }));
+
+    assert.deepEqual(got, { msg: [], pose: [] });
+  } finally { mock.timers.reset(); }
+});
