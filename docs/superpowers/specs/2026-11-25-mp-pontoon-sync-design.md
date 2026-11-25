@@ -89,7 +89,7 @@ Syncing the bridge to a player who is not in the session. A map marker for a rem
 - A guest that presses <kbd>U</kbd> sees the bridge start about one round trip later.
 - Leaving a session leaves the last synced bridge in the guest's single-player world.
 - A car on the deck when it comes down (A11): removal runs `dir -1`, `built` shrinks, so `drivableLength` (`pontoon.js:79`) drops
-  from the far end and `pontoonHit` (`pontoon.js:72`) returns null there, so `onBridge` (`index.html:1444`) no longer finds a deck.
+  from the far end and `pontoonHit` (`pontoon.js:87`) returns null there, so `onBridge` (`index.html:1444`) no longer finds a deck.
   On the driver's own screen, over the river `waterLevelAt` (`index.html:1812`, no longer short-circuited by `onBridge`) is non-null
   and the car takes the existing water branch (`index.html:6273`): splash sound, sinks at `UW.sink` 3 m/s to the bed, "Sleep with
   the fishes!" toast after 0.35 s, then the hint "Drive up to the bank, or press R for the road" (`strings.js:236-237`). There is no
