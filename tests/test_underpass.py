@@ -91,8 +91,10 @@ def test_every_underpass_has_headroom(server):
 
 
 # #119 capped these; with #120 their side roads descend instead (crossing positions on the rebuilt world)
-FORMER_CAPS = {"Kapfstrasse": (-4032, 548), "unnamed road by Bahndammstrasse": (-886, 1207),
-               "Hauptstrasse Stein": (-212, 1090), "Laufenburgerstrasse north": (1571, 1811)}
+# #1202: real heights (swissTLM3D) -- three of #119's four caps no longer have a side road inside their (shallower) cut: Kapfstrasse's
+# 1.3 m cut ramps out 9-10 m before the Bahnhofstrasse junction (t 669-671 of 680), Hauptstrasse Stein's 0.4 m one 5.5 m and
+# Laufenburgerstrasse north's 1.2 m one 5 m after the junction at their start (spans t 5.5-99, t 5-40). Only Stein's still has them.
+FORMER_CAPS = {"unnamed road by Bahndammstrasse": (-886, 1207)}
 
 
 @needs_world
@@ -238,8 +240,8 @@ def test_no_open_cut_faces(server):
     print(json.dumps({k: v for k, v in r.items() if k not in ("troughPts", "slopePts")}))
     assert r["checked"] > 0, r
     assert r["count"] == 0, r
-    # #844: banks at an at-grade corner whose run end was dropped stay a shallow grass slope (measured max 0.81 m, Stein)
-    assert r["slope"] > 0, "the Stein corner must show up as a slope"
+    # #844: banks at an at-grade corner whose run end was dropped stay a shallow grass slope (measured max 0.81 m, Stein). #1202: real
+    # heights (swissTLM3D) -- the Stein cut no longer reaches that corner, so the world may have no such slope at all
     assert r["slopeMax"] <= 1.0, r["slopePts"][:30]
 
 
@@ -276,8 +278,9 @@ def test_stein_south_corner_has_no_wall_stub(server):
     near = lambda ws, p: [w for w in ws if math.hypot(w["x"] - p[0], w["z"] - p[1]) < 1.0]
     for p in STEIN_CORNER:
         assert not near(r["walls"], p), near(r["walls"], p)
-        assert near(r["slopes"], p), p
-    for p in STEIN_KEEP + KAPF_KEEP:
+    # #1202: real heights (swissTLM3D) -- the 1.1 m Stein cut ramps out at z ~1190-1197, 13 m north of the corner: no run reaches it,
+    # so neither the corner's slope nor STEIN_KEEP's walls (z 1177-1186) exist; the drives below still guard #844
+    for p in KAPF_KEEP:
         assert near(r["walls"], p), p
     lane = r["lane"]["track"]
     assert not speed_drops(lane, LANE[1], 1222) and max(z for z, _ in lane) > 1215, lane   # road bends at z 1222.8
