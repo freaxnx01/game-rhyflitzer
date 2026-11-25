@@ -26,3 +26,7 @@ export function bindStick(base, knob, onMove) {
   base.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
   base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
 }
+
+// #1181: the controls dim after a pause and light up at once on any touch; the dimmed ones still take input
+export const TOUCH_FADE = { idleMs: 4000, opacity: 0.3 };
+export const touchFaded = (lastTouchMs, nowMs, cfg = TOUCH_FADE) => nowMs - lastTouchMs >= cfg.idleMs;

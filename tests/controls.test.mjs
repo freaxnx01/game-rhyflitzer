@@ -112,7 +112,22 @@ test('barEntries_Lift_OnlyAllKeys', () => {
 test('menuEntries_Car_ListsTheRestNotTheCore', () => {
   const cmds = menuEntries('car').map(e => e.cmd);
   for (const k of ['Comma', 'Period', 'KeyL', 'Digit1', 'KeyH', 'KeyO', 'KeyI', 'KeyF', 'KeyX', 'KeyM', 'KeyT', 'KeyR', 'Backquote']) assert.ok(cmds.includes(k), k);
-  for (const k of ['KeyZ', 'KeyJ', 'KeyC']) assert.ok(!cmds.includes(k), k);
+  for (const k of ['KeyZ', 'KeyJ', 'KeyC']) assert.ok(cmds.includes(k), k);   // #1181: the phone has no Z / J / C buttons, the menu carries them
+});
+
+test('menuEntries_ZJC_LiveInTheMenuOfEveryContext (#1181)', () => {
+  const cmds = (c) => menuEntries(c).map(e => e.cmd);
+  for (const k of ['KeyZ', 'KeyJ', 'KeyC']) assert.ok(cmds('car').includes(k), `car ${k}`);
+  for (const c of ['foot', 'indoors']) for (const k of ['KeyZ', 'KeyJ']) assert.ok(cmds(c).includes(k), `${c} ${k}`);   // get in, jump to
+  for (const c of ['heli', 'train']) assert.ok(cmds(c).includes('KeyZ'), `${c} KeyZ`);
+});
+
+test('entriesFor_NoEntry_IsAPhoneButtonForZJC (#1181)', () => {
+  for (const c of CONTEXTS) for (const e of entriesFor(c)) if (['KeyZ', 'KeyJ', 'KeyC'].includes(e.keys[0])) assert.notEqual(e.touch, 'button', `${c} ${e.action}`);
+});
+
+test('barEntries_StillListZJCAsCoreCaps_OnTheDesktopKeyBar (#1181)', () => {
+  assert.deepEqual(barEntries('car').map(e => e.cap), ['WASD', 'N', 'Z', 'J', 'C', 'F1']);
 });
 
 test('actionFor_Backquote_IsRecordInEveryRunContext (#749)', () => {

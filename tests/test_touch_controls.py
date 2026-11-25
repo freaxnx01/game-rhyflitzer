@@ -9,7 +9,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 ROAD = (1810, 610)      # on the hand Bahnhofstrasse, 56 m past checkpoint 1 (Sisseln): its toast cannot replace a "Stop first"
 VP = {"width": 390, "height": 844}
 T = 120000
-CONTROLS = ["#tStick", "#tG", "#tB", "#tH", "#tZ", "#tJ", "#tC", "#tMenu"]
+CONTROLS = ["#tStick", "#tG", "#tB", "#tH", "#tMenu"]
 
 # a synthetic touch pointer at an offset from the element's centre: two of them at once is what a real thumb pair does,
 # and Playwright's own tap/mouse cannot hold two
@@ -48,7 +48,8 @@ def open_phone(p, server, vp=VP):
 def get_out(page):
     x, z = ROAD
     page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
-    page.tap("#tZ")
+    page.tap("#tMenu")                  # #1181: Z is a row of the menu, there is no Z button
+    page.tap("#tMenuList button[data-cmd=KeyZ]")
     page.wait_for_function("() => window.__mm.foot().on", timeout=T)
 
 
@@ -69,12 +70,13 @@ def test_joystick_steers_while_gas_is_held(server):
     assert released["x"] == 0 and released["g"] == 0, released
 
 
-def test_z_button_gets_out_and_the_controls_switch_to_foot(server):
+def test_z_from_the_menu_gets_out_and_the_controls_switch_to_foot(server):
     with sync_playwright() as p:
         b, page, errors = open_phone(p, server)
         get_out(page)
         ctx = page.evaluate("() => window.__mm.touch().ctx")
         boxes = page.evaluate(BOXES, CONTROLS)
+        page_has_no_zjc_buttons = page.evaluate("() => !document.querySelector('#tZ, #tJ, #tC')")
         gas_label = page.get_attribute("#tG", "aria-label")
         before = page.evaluate("() => window.__mm.foot().x")
         ptr(page, "#tStick", "pointerdown", 1)
@@ -85,8 +87,9 @@ def test_z_button_gets_out_and_the_controls_switch_to_foot(server):
         b.close()
     assert errors == []
     assert ctx == "foot", ctx
-    assert boxes["#tB"] is None and boxes["#tH"] is None and boxes["#tC"] is None, boxes   # brake, handbrake and the camera are the car's
-    assert boxes["#tStick"] and boxes["#tG"] and boxes["#tZ"] and boxes["#tJ"], boxes
+    assert boxes["#tB"] is None and boxes["#tH"] is None, boxes     # brake and handbrake are the car's
+    assert boxes["#tStick"] and boxes["#tG"] and boxes["#tMenu"], boxes
+    assert page_has_no_zjc_buttons is True
     assert gas_label == "springen", gas_label                        # on foot Gas is the jump
     assert abs(walked - before) > 1, (before, walked)                # the stick walked him, with no key held
 
@@ -127,6 +130,7 @@ def test_menu_lists_the_rest_and_runs_a_row(server):
     assert len(rows) == expected and expected > 0, (len(rows), expected)
     assert all(r["h"] >= 44 for r in rows), rows
     assert "KeyV" in [r["cmd"] for r in rows], rows
+    assert {"KeyZ", "KeyJ", "KeyC"} <= {r["cmd"] for r in rows}, rows     # #1181: get out, jump to and camera live here now
     assert closed is True                                            # a chosen action closes the menu again
 
 
@@ -151,3 +155,29 @@ def test_phone_layout_fits(server, vp):
         for c in names[i + 1:]:
             assert not overlap(shown[a], shown[c]), (a, c, shown[a], shown[c])
     assert bars == {"keybar": "none", "setkeybar": "none"}          # the key bar is the desktop's
+
+
+def test_controls_are_small_translucent_and_fade_when_idle(server):
+    """#1181: stick 104, gas/brake 64, round buttons >= 44, a quarter-opaque fill; 4 s idle dims them to .3, a tap lights them and still works."""
+    with sync_playwright() as p:
+        b, page, errors = open_phone(p, server)
+        sizes = page.evaluate("""() => { const o = {}; for (const s of ['#tStick', '#tG', '#tB', '#tH']) {
+            const el = document.querySelector(s), r = el.getBoundingClientRect(), st = getComputedStyle(el);
+            o[s] = { w: r.width, h: r.height, bg: st.backgroundColor, border: st.borderTopWidth }; } return o; }""")
+        page.wait_for_function("() => document.querySelector('#touch').classList.contains('faded')", timeout=T)
+        page.wait_for_timeout(600)       # past the .4 s transition
+        faded = page.evaluate("() => getComputedStyle(document.querySelector('#tG')).opacity")
+        ptr(page, "#tG", "pointerdown", 1)   # the first tap on a faded control: pointer-events stay on, so gas works at once
+        page.wait_for_function("() => window.__mm.drive().gas === 1", timeout=T)
+        lit = page.evaluate("() => document.querySelector('#touch').classList.contains('faded')")
+        ptr(page, "#tG", "pointerup", 1)
+        b.close()
+    assert errors == []
+    assert (sizes["#tStick"]["w"], sizes["#tStick"]["h"]) == (104, 104), sizes
+    assert (sizes["#tG"]["w"], sizes["#tB"]["w"]) == (64, 64), sizes
+    assert sizes["#tH"]["w"] >= 44, sizes
+    for s, v in sizes.items():
+        alpha = float(v["bg"].split(",")[3].strip(" )")) if v["bg"].startswith("rgba") else 1.0
+        assert alpha <= 0.3 and v["border"] == "2px", (s, v)
+    assert abs(float(faded) - 0.3) < 0.02, faded
+    assert lit is False                                              # a pointerdown anywhere brings them back at once
