@@ -13,7 +13,7 @@ import math
 import pytest
 from playwright.sync_api import sync_playwright
 
-from test_multiplayer_lobby import ARGS, T, connect, net, open_page
+from test_multiplayer_lobby import ARGS, T, connect, net, open_page, READY
 
 # two pages in one browser: without these the background page's setInterval drops to 1 Hz and its rAF stops
 NO_THROTTLE = [
@@ -29,6 +29,30 @@ def pair_fixture(server):
         browser = p.chromium.launch(args=ARGS + NO_THROTTLE)
         host, host_errors = open_page(browser, server)
         guest, guest_errors = open_page(browser, server)
+        yield host, guest, host_errors + guest_errors
+        browser.close()
+
+
+def open_world_page(browser, server):
+    """A page like the lobby's open_page, but with the real OSM world: knock-over props only exist with one (#1191).
+    The boot wait is longer because the second page builds its world against the first one's render loop."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+    page = ctx.new_page()
+    page.set_default_timeout(T)
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.route("**/data/terrain_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))
+    page.goto(f"{server}/index.html?netice=none")
+    page.wait_for_function(READY, timeout=600000)
+    return page, errors
+
+
+@pytest.fixture(name="pair_world")
+def pair_world_fixture(server):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=ARGS + NO_THROTTLE)
+        host, host_errors = open_world_page(browser, server)
+        guest, guest_errors = open_world_page(browser, server)
         yield host, guest, host_errors + guest_errors
         browser.close()
 
@@ -307,4 +331,25 @@ def test_remote_car_reversing_rolls_backwards(pair):
     pos1 = net_car(guest, 0)["pos"]
     along = (pos1[0] - pos0[0]) * math.cos(th) + (pos1[2] - pos0[2]) * math.sin(th)
     assert along < 0, (th, pos0, pos1)     # the car really moved opposite its heading: it reversed
+    assert errors == []
+
+
+def test_a_prop_knocked_over_falls_for_the_other_player(pair_world):
+    """#1191: a knocked prop falls on the other screen too, both ways."""
+    host, guest, errors = pair_world
+    connect(host, guest)
+    ready_both(host, guest)
+    host.click("#mpgo")
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.net().session && document.querySelector('#mplobby').hidden", timeout=T)
+    for sender, receiver in ((host, guest), (guest, host)):
+        own = receiver.evaluate("() => window.__mm.knock().count")
+        prop = sender.evaluate("() => window.__mm.knockHit()")
+        assert prop is not None
+        receiver.wait_for_function("([k, i]) => window.__mm.knockProps(k)[i].hit",
+                                   arg=[prop["k"], prop["i"]], polling=250, timeout=T)
+        d = receiver.evaluate("() => window.__mm.knock()")
+        assert d["remote"] == 1 and d["count"] == own, d
+    assert net(host)["bad"] == 0 and net(guest)["bad"] == 0
     assert errors == []
