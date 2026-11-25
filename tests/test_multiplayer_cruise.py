@@ -308,3 +308,24 @@ def test_remote_car_reversing_rolls_backwards(pair):
     along = (pos1[0] - pos0[0]) * math.cos(th) + (pos1[2] - pos0[2]) * math.sin(th)
     assert along < 0, (th, pos0, pos1)     # the car really moved opposite its heading: it reversed
     assert errors == []
+
+
+def test_a_prop_knocked_over_falls_for_the_other_player(pair):
+    """#1191: a knocked prop falls on the other screen too, both ways."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    host.click("#mpgo")
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.net().session && document.querySelector('#mplobby').hidden", timeout=T)
+    for sender, receiver in ((host, guest), (guest, host)):
+        own = receiver.evaluate("() => window.__mm.knock().count")
+        prop = sender.evaluate("() => window.__mm.knockHit()")
+        assert prop is not None
+        receiver.wait_for_function("([k, i]) => window.__mm.knockProps(k)[i].hit",
+                                   arg=[prop["k"], prop["i"]], polling=250, timeout=T)
+        d = receiver.evaluate("() => window.__mm.knock()")
+        assert d["remote"] == 1 and d["count"] == own, d
+    assert net(host)["bad"] == 0 and net(guest)["bad"] == 0
+    assert errors == []
