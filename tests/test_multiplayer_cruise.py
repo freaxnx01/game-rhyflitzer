@@ -13,7 +13,7 @@ import math
 import pytest
 from playwright.sync_api import sync_playwright
 
-from test_multiplayer_lobby import ARGS, T, connect, net, open_page
+from test_multiplayer_lobby import ARGS, T, connect, net, open_page, READY
 
 # two pages in one browser: without these the background page's setInterval drops to 1 Hz and its rAF stops
 NO_THROTTLE = [
@@ -29,6 +29,29 @@ def pair_fixture(server):
         browser = p.chromium.launch(args=ARGS + NO_THROTTLE)
         host, host_errors = open_page(browser, server)
         guest, guest_errors = open_page(browser, server)
+        yield host, guest, host_errors + guest_errors
+        browser.close()
+
+
+def open_world_page(browser, server):
+    """A page like the lobby's open_page, but with the real OSM world: knock-over props only exist with one (#1191)."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+    page = ctx.new_page()
+    page.set_default_timeout(T)
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.route("**/data/terrain_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))
+    page.goto(f"{server}/index.html?netice=none")
+    page.wait_for_function(READY, timeout=240000)
+    return page, errors
+
+
+@pytest.fixture(name="pair_world")
+def pair_world_fixture(server):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=ARGS + NO_THROTTLE)
+        host, host_errors = open_world_page(browser, server)
+        guest, guest_errors = open_world_page(browser, server)
         yield host, guest, host_errors + guest_errors
         browser.close()
 
@@ -310,9 +333,9 @@ def test_remote_car_reversing_rolls_backwards(pair):
     assert errors == []
 
 
-def test_a_prop_knocked_over_falls_for_the_other_player(pair):
+def test_a_prop_knocked_over_falls_for_the_other_player(pair_world):
     """#1191: a knocked prop falls on the other screen too, both ways."""
-    host, guest, errors = pair
+    host, guest, errors = pair_world
     connect(host, guest)
     ready_both(host, guest)
     host.click("#mpgo")
