@@ -451,6 +451,9 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 #mp textarea{resize:vertical;word-break:break-all;line-height:1.25}
 #mp input:focus-visible,#mp textarea:focus-visible{outline:none;border-color:var(--sun)}
 .mp-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mp-roles[hidden]{display:none}
+/* #1198: the room code, big enough to read out across a room */
+#mproombox{display:flex;flex-direction:column;gap:10px}#mproombox[hidden]{display:none}
+.mp-room{display:block;text-align:center;font-size:clamp(30px,9vw,46px);font-weight:800;letter-spacing:.16em;color:var(--sun)}.mp-room[hidden]{display:none}
 #mpclock{font-size:15px;font-weight:700;color:var(--sun);text-transform:none;letter-spacing:0}
 #mpstatus,#mplobbystatus{margin:0;font-size:16px;font-weight:700;min-height:1.2em}
 #mpstatus.bad,#mplobbystatus.bad{color:#ff9d7a}
@@ -954,6 +957,16 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="mpguestbtn" class="btn" type="button" data-i18n="mpGuest">Join a race</button>
     </div>
     <p id="mphint" class="mp-hint"></p>
+    <!-- #1198 the room code: the host reads it out, a guest types it. The relay only forwards the codes below. -->
+    <div id="mproombox" hidden>
+      <div class="mp-label" id="mproomlabel"></div>
+      <output id="mproomcode" class="mp-room" hidden></output>
+      <button id="mproomcopy" class="btn" type="button" hidden data-i18n="mpCopy">Copy</button>
+      <input id="mproomfield" type="text" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false" hidden data-i18n-placeholder="mpRoomField" data-i18n-aria="mpRoomField">
+      <button id="mproomjoin" class="btn primary" type="button" hidden data-i18n="mpRoomJoin"></button>
+    </div>
+    <!-- #1198 the fallback: the manual code exchange, always one click away while the relay is on -->
+    <button id="mpmanual" class="btn" type="button" hidden data-i18n="mpManual"></button>
     <!-- a guest pastes the host's code here -->
     <div id="mpinbox" hidden>
       <label class="mp-label" for="mpin" data-i18n="mpHostCodeLabel"></label>
@@ -983,6 +996,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="panel">
     <h1 id="mplobbytitle" data-i18n="mpLobbyTitle">Lobby</h1>
     <small id="mplobbysub"></small>
+    <small id="mproomline" hidden></small>
     <div id="mpplayers" class="mp-players"></div>
     <div id="mpclassrow" class="mp-class" hidden>
       <span class="mp-label" data-i18n="mpClassLabel">Class</span>
@@ -7059,8 +7073,8 @@ function netLink() {
 function openMp() {
   NET.autoName = storedMpName() ? null : funnyName(namePool()); $('mpname').value = storedMpName() || NET.autoName; $('mpname').disabled = false; $('mpdice').disabled = false;
   $('mproles').hidden = false; $('mphint').textContent = '';
-  for (const id of ['mpinbox', 'mpoutbox', 'mpanswerbox', 'mpregion']) $(id).hidden = true;
-  $('mpin').value = ''; $('mpanswerin').value = ''; $('mpcode').value = '';
+  for (const id of ['mpinbox', 'mpoutbox', 'mpanswerbox', 'mpregion', 'mproombox', 'mpmanual']) $(id).hidden = true;
+  $('mpin').value = ''; $('mpanswerin').value = ''; $('mpcode').value = ''; $('mproomfield').value = '';
   stopCodeClock(); netSay('');
   $('mp').hidden = false; $('mpname').focus();
 }
