@@ -5,7 +5,7 @@
 
 **Files:** `pontoon.js`, `netcodec.js`, `netsync.js`, `index.html`, `tests/pontoon.test.mjs`, `tests/netcodec.test.mjs`, `tests/netsync.test.mjs`, `tests/test_multiplayer_pontoon.py` (new), `CHANGELOG.md`.
 
-**Global constraints:** validate every inbound message; the host stamps nothing it cannot verify; `CODE_VERSION` +1 over whatever is on `main` when you rebase (#1191 also bumps it; the second to land rebases its bump). CHANGELOG entry is German, timestamped `TZ=Europe/Zurich date '+%F %H:%M'`, under `[Unreleased]` / `### Added`, 1-3 bold keywords, keys in `<kbd>`.
+**Global constraints:** `take` has no occupancy check, host or guest (A11, on purpose); the water/reset path needs no change (spec Consequences). validate every inbound message; the host stamps nothing it cannot verify; `CODE_VERSION` +1 over whatever is on `main` when you rebase (#1191 also bumps it; the second to land rebases its bump). CHANGELOG entry is German, timestamped `TZ=Europe/Zurich date '+%F %H:%M'`, under `[Unreleased]` / `### Added`, 1-3 bold keywords, keys in `<kbd>`.
 
 ## Task 1: wire format in pontoon.js
 
@@ -73,7 +73,7 @@ Extend the imports (`pontoon.js` line `index.html:1121`: `deckToWire`, `deckFrom
 
 ## Task 5: browser test (targeted)
 
-- [ ] New `tests/test_multiplayer_pontoon.py`, built like `tests/test_multiplayer_bump.py` (`pair_fixture` from `test_multiplayer_cruise`, two pages): (1) guest at the Rhine bank (`BANK`, `NORTH` from `tests/test_pontoon.py`) presses <kbd>U</kbd>; poll both `window.__mm.pontoon()` until `built === 1` and equal `a`/`b`; (2) host presses <kbd>U</kbd> near the deck: both end with `on === false`; (3) host lays a bridge, then guest leaves/starts a fresh drive: the guest's `pontoon().on` is true at start. Run only this file and `tests/test_pontoon.py`; console must stay empty.
+- [ ] New `tests/test_multiplayer_pontoon.py`, built like `tests/test_multiplayer_bump.py` (`pair_fixture` from `test_multiplayer_cruise`, two pages): (1) guest at the Rhine bank (`BANK`, `NORTH` from `tests/test_pontoon.py`) presses <kbd>U</kbd>; poll both `window.__mm.pontoon()` until `built === 1` and equal `a`/`b`; (2) host presses <kbd>U</kbd> near the deck: both end with `on === false`; (3) a guest car sits on the deck, the host presses <kbd>U</kbd> (A11: no occupancy check): the guest's `window.__mm.car().splash` becomes > 0 and `bridge` false, and the host sees that car's mesh `y` fall; (4) host lays a bridge, then guest leaves/starts a fresh drive: the guest's `pontoon().on` is true at start. Run only this file and `tests/test_pontoon.py`; console must stay empty.
 
 ## Task 6: CHANGELOG, full unit run
 
