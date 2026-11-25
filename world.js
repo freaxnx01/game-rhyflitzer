@@ -257,6 +257,19 @@ export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidt
 // #1196: heights measured by swissTLM3D. A deck profile [t, y] is pinned to the bank heights at both ends and keeps the measured samples
 // from `B` m inward, mixing linearly toward the pin in between; gaps between samples interpolate linearly (profileY).
 export const TLM_RAIL_TOP = 0.3, TLM_CLEAR_MIN = 3.0, TLM_FINE = { inner: 16, outer: 28, r: 4 }, TLM_UNDER_REACH = 8;
+// #1202: the bare-earth DTM drops under a bridge, so a TLM rail deck gets its embankment back: along its span EMBANK.lip under the
+// surface (the deck covers it; the road through is a cut, retained by its walls), eased in over the first and last metre so the 1 m
+// patches smear no step; EMBANK.run m past each end at the end's surface, the rail running on; beyond that falling EMBANK.fall per
+// metre, sideways past the deck's half-width too
+export const EMBANK = { run: 6, fall: 0.67, lip: 0.3 };
+export function embankAt(deck, x, z) {
+  const p = deck.pts, n = nearestOnPolyline(p, x, z), inside = n.t > 1e-9 && n.t < deck.len - 1e-9;
+  let lat = n.d, past = 0;
+  if (!inside) { const k = n.t > 1e-9, e = k ? p[p.length - 1] : p[0], q = k ? p[p.length - 2] : p[1], l = Math.hypot(e[0] - q[0], e[1] - q[1]) || 1;
+    const ox = (e[0] - q[0]) / l, oz = (e[1] - q[1]) / l, vx = x - e[0], vz = z - e[1];
+    past = Math.max(0, vx * ox + vz * oz); lat = Math.abs(vx * oz - vz * ox); }
+  return bridgeSurfaceAt(deck, n.t) - (inside ? EMBANK.lip * Math.min(1, n.t, deck.len - n.t) : 0) - Math.max(0, lat - deck.hw) * EMBANK.fall - Math.max(0, past - EMBANK.run) * EMBANK.fall;
+}
 export function tlmProfile(samples, len, y0, y1) {
   const raw = samples.map(([t, y]) => [t, y]).filter(([t]) => t > 0 && t < len).sort((a, b) => a[0] - b[0]);
   if (!raw.length) return [[0, y0], [len, y1]];
