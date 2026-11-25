@@ -79,6 +79,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-25 21:45` Die **Ankengasse** unter der **A3** liegt in ihrer Unterführung jetzt eben: Die Fahrbahn kippt nicht mehr zur Seite, und ihr Rand steht nicht mehr über dem Boden.
 - `2026-11-25 20:33` Unter der **A3** bei der **Zürcherstrasse** (Stein) steht neben der abgesenkten Strasse keine offene **Erdkante** mehr: Wo keine Stützmauer hinpasst, bleibt der Boden auf seiner Höhe.
 - `2026-11-25 19:18` **Bahnbrücken** schweben nicht mehr über der Strasse: Sie stehen auf ihrem **Bahndamm** mit **Widerlagern** links und rechts der Durchfahrt, und ihre Enden sacken nicht mehr ab, zum Beispiel in **Stein** und an der **Kapfstrasse**.
 - `2026-11-25 14:44` Multiplayer race: when the host **refuses your checkpoint**, it no longer re-triggers with the pass sound over and over while you stand in it; drive out and back in to try again.

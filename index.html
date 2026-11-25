@@ -1785,6 +1785,15 @@ function cutFloorMin(x, z) {
     const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
+// #1202: under a TLM road deck the corridor lies level on the cut's floor, filled where the ground falls away below it across the road
+// (Ankengasse on its side slope: the low edge 0.7 m under the floor tilted the ribbon, and its lift stood the high edge 0.4 m over the floor)
+function carriageFloor(x, z) {
+  let f = Infinity;   // the lowest floor over the point, as cutFloorMin
+  for (const a of ARMS) { if (!a.roadCut || !a.deck.tlm) continue; const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue;
+    if (nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) continue;   // the corridor out to the wall face, as the floor is level
+    const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
+  return f === Infinity ? -Infinity : f;
+}
 function cutDepth(x, z) { return uncutH(x, z) - terrainH(x, z); }
 // #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
 // the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
@@ -1824,7 +1833,8 @@ function buildCuts() {
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z), padFloorAt(PADS, x, z) ?? Infinity); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    // #1202: carriageFloor fills the TLM road cut's corridor up to its floor, never over another cut's floor
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; const floor = cutFloorMin(x, z); p[b * W + k] = Math.max(Math.min(patchGround(x, z), floor, padFloorAt(PADS, x, z) ?? Infinity), Math.min(carriageFloor(x, z), floor)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
     return { p, lowered };
   };
   for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
