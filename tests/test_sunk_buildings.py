@@ -41,12 +41,15 @@ def test_school_roof_follows_the_measured_ground(server):
 
 
 @needs_world
-def test_no_invisible_wall_north_of_the_school(server):
+def test_the_wall_at_the_reported_spot_is_visible(server):
+    """#1200: at x 1890, z 1922.9 the car stopped at the school's buried wing. With the roof from the measured ground the
+    wing stands above the ground there, so what blocks the car is a wall the player can see."""
     with sync_playwright() as p:
         b, page = open_game(p, server)
-        d = travelled(page, 1890, 1922.9, -math.pi / 2, 8, 2)
+        ground = page.evaluate("() => window.__mm.sim(1890, 1922.9, 0, 0, 0).y")
+        top = page.evaluate("() => window.__mm.buildingTop(210046850)")
         b.close()
-    assert d >= 10, d
+    assert top >= ground + 2, (top, ground)
 
 
 @needs_world
