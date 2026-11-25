@@ -29,6 +29,11 @@ test('parseFrame_garbage_null', () => {
     JSON.stringify({ t: 'signal', from: 1, data: 'x'.repeat(DATA_MAX + 1) }), '{"t":"error","code":"boom"}',
     '{"t":"created","room":"<b>"}', '{"t":"guest","peer":1.5}', 42, 'x'.repeat(20001)]) assert.equal(parseFrame(raw), null);
 });
+test('parseFrame_createdTtl_cappedAtContractHour', () => {
+  // docs/relay-protocol.md: a room lives at most 60 minutes, so a `created` frame promising longer is out of contract
+  assert.deepEqual(parseFrame('{"t":"created","room":"RHY-4827","ttl":3600}'), { t: 'created', room: 'RHY-4827', ttl: 3600 });
+  for (const ttl of [3601, 86400, 0, -1, 1.5, '3600']) assert.equal(parseFrame(JSON.stringify({ t: 'created', room: 'RHY-4827', ttl })), null);
+});
 test('openRelay_queuesUntilOpen_thenRoutes', () => {
   const ev = [], r = relay(ev);
   r.create(3);

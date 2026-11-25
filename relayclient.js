@@ -16,7 +16,7 @@ export const OPEN_MS = 5000;        // milliseconds the socket has to open befor
 
 const ERROR_CODES = ['bad', 'no-room', 'full', 'rate', 'taken'];
 const ROOM_RE = /^[A-Z]{3}-[0-9]{4}$/;
-const DAY_S = 86400;
+const ROOM_TTL_MAX = 3600;   // seconds: a room lives at most 60 minutes (docs/relay-protocol.md)
 
 const isPeer = (value) => Number.isInteger(value) && value >= 0;
 const isPayload = (value) => typeof value === 'string' && value.length >= 1 && value.length <= DATA_MAX;
@@ -24,7 +24,7 @@ const isPayload = (value) => typeof value === 'string' && value.length >= 1 && v
 // Every reader returns a fresh object with only the fields this version knows, so nothing an unknown field carries
 // can travel on, and anything out of range reads as null.
 const FRAMES = {
-  created: (f) => (ROOM_RE.test(f.room) && Number.isInteger(f.ttl) && f.ttl > 0 && f.ttl <= DAY_S ? { t: 'created', room: f.room, ttl: f.ttl } : null),
+  created: (f) => (ROOM_RE.test(f.room) && Number.isInteger(f.ttl) && f.ttl > 0 && f.ttl <= ROOM_TTL_MAX ? { t: 'created', room: f.room, ttl: f.ttl } : null),
   joined: (f) => (isPeer(f.peer) ? { t: 'joined', peer: f.peer } : null),
   guest: (f) => (isPeer(f.peer) ? { t: 'guest', peer: f.peer } : null),
   left: (f) => (isPeer(f.peer) ? { t: 'left', peer: f.peer } : null),
