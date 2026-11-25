@@ -1089,6 +1089,7 @@ import { offerJoin, listenForJoin } from './joinhandoff.js';   // #1111: an invi
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, finishHeld, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
+import { openRelay, normalizeRoom } from './relayclient.js';   // #1198: one room code for everyone, through our own signaling relay
 import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps, knockAllowed, pontoonAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); #1190: pontoonAllowed, the host's lay/take gate; netClockOffset: ferrisride.js already owns `clockOffset`
 import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, BUMP_DY, HIT_WINDOW } from './netbump.js';   // #836: car-to-car contact in a shared drive
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
@@ -7029,7 +7030,11 @@ const NET = {
   slot: null,          // host only: the peer id the code on screen belongs to
   codeAt: 0,           // Unix seconds the shown code was made; 0 when none is shown
   codeClock: null,     // the countdown's interval
-  pending: null,       // a host code held back while the region question is open
+  pending: null,       // a host code (or #1198 room code) held back while the region question is open
+  // #1198: the signaling relay -- one room code instead of a code per player
+  relay: null,         // the openRelay object while a room is in play, else null
+  room: null,          // that room's code
+  relayPeers: new Map(),   // host only: relay peer id -> netlink slot
   // #835 part b: the shared drive
   session: false,      // true from the host's "Drive together" until this device leaves
   seq: 0,              // the pose counter this device stamps its records with
@@ -7041,6 +7046,10 @@ const NET = {
   race: null,          // #837: { t0, shown, go } while a network race runs
 };
 const MP_NAME_KEY = 'mm.mpName', MP_JOIN_KEY = 'mm.mpJoin';
+// #1198: our own small signaling relay (docs/relay-protocol.md, ADR 0001). An empty url switches it off: the dialog is
+// then the pure code exchange it was before. The rooms are namespaced per game, so other games share the service.
+const RELAY_URL = 'wss://relay.freaxnx01.ch/', RELAY_GAME = 'rhyflitzer', RELAY_PREFIX = 'RHY';
+const ROOM_RE = /^[A-Z]{3}-\d{4}$/;
 const MP_ERR = { size: 'mpErrSize', format: 'mpErrFormat', version: 'mpErrVersion', role: 'mpErrRole', expired: 'mpErrExpired' };
 const nowSec = () => Math.floor(Date.now() / 1000);
 const netOpen = () => !$('mp').hidden || !$('mplobby').hidden;
@@ -7092,12 +7101,73 @@ function netTakeName() {
   return NET.name;
 }
 
+// ---- #1198 the room code: the relay only carries the codes above, it is never trusted ----
+// Whatever the relay forwards is read by decodeCode exactly as a pasted code would be, so a garbage payload reaches
+// neither hostAccept nor guestAnswer. Game traffic never touches the relay: once the data channel is open it is closed.
+function netRelayStop() {
+  if (NET.relay) NET.relay.close();
+  Object.assign(NET, { relay: null, room: null, relayPeers: new Map() });
+}
+// the room is over, with the reason on screen; "Ohne Server verbinden" stays offered, nothing switches by itself
+function netRoomEnd(key) { netRelayStop(); $('mproombox').hidden = true; netTrouble(tr(key)); }
+const netRelayDown = () => netRoomEnd('mpRelayDown');
+function netRelayOpen(onEvent) {
+  netRelayStop();
+  NET.relay = openRelay({ url: RELAY_URL, game: RELAY_GAME, prefix: RELAY_PREFIX, onEvent });
+  return NET.relay;
+}
+// the room box in one of its two shapes: the host's code to read out, or the guest's field to type one into
+function netShowRoomCode(code) {
+  NET.room = code;
+  $('mproomlabel').textContent = tr('mpRoomLabel');
+  $('mproomcode').textContent = code; $('mproomcopy').textContent = tr('mpCopy');
+  $('mproomcode').hidden = false; $('mproomcopy').hidden = false;
+  $('mproomfield').hidden = true; $('mproomjoin').hidden = true;
+  $('mproombox').hidden = false;
+}
+function netShowRoomField() {
+  $('mproomlabel').textContent = tr('mpRoomField');
+  $('mproomcode').hidden = true; $('mproomcopy').hidden = true;
+  $('mproomfield').hidden = false; $('mproomjoin').hidden = false;
+  $('mproombox').hidden = false;
+}
+
 // ---- host ----
 async function netHostStart() {
   const name = netTakeName();
   NET.role = 'H'; NET.lobby = createLobby(REGION.id, name); NET.you = 0;
   $('mproles').hidden = true; $('mpname').disabled = true; $('mpdice').disabled = true; $('mphint').textContent = tr('mpHostHint');
-  await netHostCode();
+  if (!RELAY_URL) { await netHostCode(); return; }
+  $('mphint').textContent = tr('mpRoomHostHint'); $('mpmanual').hidden = false;
+  netSay(tr('mpRelayConnecting'));
+  netRelayOpen(netHostRelay).create(MAX_PLAYERS - 1);
+}
+// A8: one room for the whole session -- a guest that joins it gets its own offer, and the code stays the same for everyone
+function netHostRelay(ev) {
+  if (ev.t === 'created') { netShowRoomCode(ev.room); netSay(''); return; }
+  if (ev.t === 'guest') { netRelayOffer(ev.peer); return; }
+  if (ev.t === 'signal') { netRelayAnswer(ev.from, ev.data); return; }
+  if (ev.t === 'left') { NET.relayPeers.delete(ev.peer); return; }   // netlink's own deadline frees the slot
+  netRelayDown();
+}
+// A9: a guest the star has no slot for is told so, instead of being left waiting
+async function netRelayOffer(peer) {
+  const relay = NET.relay;
+  const offer = await netLink().hostOffer();
+  if (NET.relay !== relay) return;                     // the room ended while ICE was being gathered
+  if (!offer) { relay.signal(peer, 'full'); return; }
+  const text = await encodeCode('H', offer.sdp, REGION.id, nowSec());
+  if (!text) { netWarn(tr('mpNoCodec')); return; }
+  if (NET.relay !== relay) return;
+  NET.relayPeers.set(peer, offer.id);
+  relay.signal(peer, text);
+}
+async function netRelayAnswer(peer, data) {
+  const slot = NET.relayPeers.get(peer);
+  if (slot === undefined) return;                      // a signal from someone this host never offered a slot
+  const code = await decodeCode(data, 'G', nowSec());
+  if (!code.ok) { NET.bad++; return; }
+  await netLink().hostAccept(slot, code.sdp);
 }
 // one code per guest: netlink opens a fresh connection for the next free slot and this wraps its offer into a code
 async function netHostCode() {
@@ -7128,6 +7198,46 @@ async function netHostAccept() {
 
 // ---- guest ----
 function netGuestRole() { NET.role = 'G'; $('mproles').hidden = true; $('mphint').textContent = tr('mpGuestHint'); $('mpinbox').hidden = false; }
+// #1198: the guest types the room code the host read out -- no code travels back by hand
+function netGuestRoom() {
+  NET.role = 'G'; $('mproles').hidden = true; $('mphint').textContent = tr('mpRoomGuestHint');
+  netShowRoomField(); $('mpmanual').hidden = false; netSay('');
+}
+function netGuestJoin() {
+  netTakeName();
+  const room = normalizeRoom($('mproomfield').value, RELAY_PREFIX);
+  if (!room) { netWarn(tr('mpRoomBad')); return; }
+  const relay = netRelayOpen(netGuestRelay);
+  NET.room = room;
+  relay.join(room);
+  netSay(tr('mpRoomWaiting'));
+}
+function netGuestRelay(ev) {
+  if (ev.t === 'joined') return;                       // in the room; the host's offer follows on its own
+  if (ev.t === 'signal') { if (ev.from === HOST_ID) netGuestOffer(ev.data); return; }
+  if (ev.t === 'closed') { netRoomEnd('mpRoomClosed'); return; }
+  if (ev.t === 'expired') { netRoomEnd('mpRoomUnknown'); return; }
+  if (ev.t === 'error') { netRoomEnd(ev.code === 'full' ? 'mpFull' : ev.code === 'no-room' ? 'mpRoomUnknown' : 'mpRelayDown'); return; }
+  netRelayDown();                                      // unreachable / lost
+}
+// the host's offer, judged exactly like a pasted code: nothing is answered until decodeCode says ok
+async function netGuestOffer(data) {
+  if (data === 'full') { netRoomEnd('mpFull'); return; }
+  const relay = NET.relay;
+  const code = await decodeCode(data, 'H', nowSec());
+  if (!code.ok) { NET.bad++; netWarn(tr(MP_ERR[code.error])); return; }
+  if (NET.relay !== relay) return;
+  // A10: the region switch parks the room code, not the offer -- after the reload the guest rejoins and gets a fresh one
+  if (code.g !== REGION.id) { const room = NET.room; netRelayStop(); netAskRegion(code.g, room); return; }
+  netSay(tr('mpMaking'));
+  const answer = await netLink().guestAnswer(code.sdp);
+  const text = await encodeCode('G', answer, null, nowSec());
+  if (!text) { netWarn(tr('mpNoCodec')); return; }
+  if (NET.relay !== relay) return;
+  relay.signal(HOST_ID, text);
+  $('mproombox').hidden = true; $('mpname').disabled = true; $('mpdice').disabled = true;
+  netSay(tr('mpWaiting'));
+}
 async function netGuestAnswer() {
   netTakeName();
   const code = await decodeCode($('mpin').value.trim(), 'H', nowSec());
@@ -7145,10 +7255,10 @@ async function netGuestAnswer() {
 }
 // A1: the lobby's region is the one the host has loaded. Switching region reloads the page, so the code is parked in
 // sessionStorage and the join screen reopens with it filled in.
-function netAskRegion(id) {
+function netAskRegion(id, parked = $('mpin').value.trim()) {
   const region = REGIONS[id];
   if (!region) { netWarn(tr('mpErrFormat')); return; }
-  NET.pending = $('mpin').value.trim();
+  NET.pending = parked;
   $('mpregion').dataset.region = id; $('mpregion').hidden = false;
   netWarn(tr('mpOtherRegion', region.name)); $('mpregion').focus();
 }
@@ -7228,7 +7338,7 @@ function netHello() { NET.link.send(HOST_ID, { type: 'hello', name: NET.name, cu
 function stopHello() { clearInterval(NET.helloTimer); NET.helloTimer = null; }
 function netPeerState(peerId, state) {
   if (state === 'timeout') { netTrouble(tr(NET.role === 'G' ? 'mpAnswerUnused' : 'mpIceFail')); return; }
-  if (state === 'open') { if (NET.role === 'G') { netHello(); stopHello(); NET.helloTimer = setInterval(netHello, HELLO_MS); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
+  if (state === 'open') { if (NET.role === 'G') { netRelayStop(); netHello(); stopHello(); NET.helloTimer = setInterval(netHello, HELLO_MS); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
   if (!['disconnected', 'failed', 'closed'].includes(state)) return;
   if (NET.role === 'G' && state === 'failed' && !NET.lobby) { netTrouble(tr('mpIceFail')); return; }
   if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
@@ -7254,6 +7364,10 @@ function renderLobby() {
   if (!lobby) return;
   const host = NET.role === 'H', me = lobby.players.find((p) => p.id === NET.you);
   $('mplobbysub').textContent = tr('mpLobbySub', REGIONS[lobby.region] ? REGIONS[lobby.region].name : lobby.region);
+  // #1198 A8: the host's room stays open for the whole session, so its code belongs where the players are
+  const roomOpen = host && !!NET.relay && !!NET.room;
+  $('mproomline').hidden = !roomOpen;
+  if (roomOpen) $('mproomline').textContent = tr('mpRoomInLobby', NET.room);
   $('mpplayers').innerHTML = lobby.players.map(netRowHtml).join('');
   $('mpclassrow').hidden = !host;
   if (host) $('mpclassbtns').innerHTML = ['all', ...CLASSES].map((c) => `<button type="button" data-cls="${c}" aria-pressed="${c === lobby.cls}">${esc(c === 'all' ? tr('mpClassAll') : tr('mpClassOne', c))}</button>`).join('');
@@ -7738,6 +7852,7 @@ function netLeave() {
   clearInterval(NET.pingTimer);
   Object.assign(NET, { clock: null, offset: null, pingTimer: null });
   if (NET.link) { NET.link.broadcast({ type: 'bye' }); NET.link.closeAll(); }
+  netRelayStop();
   stopCodeClock();
   Object.assign(NET, { role: null, link: null, lobby: null, you: null, name: null, slots: new Map(), slot: null, pending: null });
   CARSEL.mp = false;
@@ -7748,7 +7863,19 @@ function netLeave() {
 $('mpbtn').onclick = openMp;
 $('mpclose').onclick = netBack;
 $('mphostbtn').onclick = netHostStart;
-$('mpguestbtn').onclick = () => { netGuestRole(); $('mpin').focus(); };
+$('mpguestbtn').onclick = () => { if (RELAY_URL) { netGuestRoom(); $('mproomfield').focus(); return; } netGuestRole(); $('mpin').focus(); };
+$('mproomjoin').onclick = netGuestJoin;
+// A3/A4: the way without the relay, always one click away -- the player chooses, nothing switches by itself
+$('mpmanual').onclick = async () => {
+  netRelayStop();
+  $('mproombox').hidden = true; $('mpmanual').hidden = true; netSay('');
+  if (NET.role === 'H') { $('mphint').textContent = tr('mpHostHint'); await netHostCode(); return; }
+  netGuestRole(); $('mpin').focus();
+};
+$('mproomcopy').onclick = () => {
+  if (!navigator.clipboard) { netWarn(tr('copyFailed')); return; }
+  navigator.clipboard.writeText(NET.room || '').then(() => { $('mproomcopy').textContent = tr('mpCopied'); }, () => netWarn(tr('copyFailed')));
+};
 $('mpdice').onclick = () => { if ($('mpdice').disabled) return; NET.autoName = rerollName(namePool(), $('mpname').value); $('mpname').value = NET.autoName; forgetMpName(); };
 $('mpmake').onclick = netGuestAnswer;
 $('mpaccept').onclick = netHostAccept;
@@ -7783,7 +7910,8 @@ if (REGION.generated) $('mpbtn').hidden = true;
 {
   let parked = null;
   try { parked = sessionStorage.getItem(MP_JOIN_KEY); sessionStorage.removeItem(MP_JOIN_KEY); } catch (e) { /* nothing parked */ }
-  if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
+  if (parked && ROOM_RE.test(parked) && RELAY_URL && !REGION.generated) { openMp(); netGuestRoom(); $('mproomfield').value = parked; $('mproomjoin').focus(); }   // #1198: a parked room code rejoins the room and gets a fresh offer
+  else if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
 }
 // #980: a `#join=<code>` link fills the guest screen; the fragment goes at once, nothing connects before the click
 // also on hashchange: a link pasted into a tab that already runs the game only changes the fragment, it does not reload
