@@ -34,7 +34,8 @@ def pair_fixture(server):
 
 
 def open_world_page(browser, server):
-    """A page like the lobby's open_page, but with the real OSM world: knock-over props only exist with one (#1191)."""
+    """A page like the lobby's open_page, but with the real OSM world: knock-over props only exist with one (#1191).
+    The boot wait is longer because the second page builds its world against the first one's render loop."""
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
     page = ctx.new_page()
     page.set_default_timeout(T)
@@ -42,7 +43,7 @@ def open_world_page(browser, server):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/data/terrain_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html?netice=none")
-    page.wait_for_function(READY, timeout=240000)
+    page.wait_for_function(READY, timeout=600000)
     return page, errors
 
 
