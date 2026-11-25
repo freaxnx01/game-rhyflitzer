@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tlmProfile, bridgeDeckAt, bridgeSurfaceAt, bridgeDeckOffset, DECK_OFFSET, tlmUnderAt, tlmFloorTarget, fineWeight, FINE_BANK, profileY, UNDERPASS, TLM_RAIL_TOP, TLM_CLEAR_MIN, TLM_FINE, TLM_UNDER_REACH } from '../world.js';
+import { tlmProfile, bridgeDeckAt, bridgeSurfaceAt, bridgeDeckOffset, DECK_OFFSET, tlmUnderAt, tlmFloorTarget, fineWeight, FINE_BANK, profileY, UNDERPASS, TLM_RAIL_TOP, TLM_CLEAR_MIN, TLM_FINE, TLM_UNDER_REACH, EMBANK, embankAt } from '../world.js';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 
@@ -82,4 +82,19 @@ test('tlmNoCut_roadAlreadyWithinToleranceOfTheMeasuredOne', async () => {
   assert.equal(tlmNoCut(20.4, 20, 30), true);            // the highest road point is 0.4 m above the measured road: within 0.5 m
   assert.equal(tlmNoCut(20.6, 20, 30), false);           // 0.6 m: cut
   assert.equal(tlmNoCut(20.4, 20, 24), false);           // under the clearance bound (24 - 1.2 - 3.0 = 19.8): the clearance needs the cut
+});
+// #1202: the embankment the bare-earth DTM lost under a TLM rail deck
+const DECK = { pts: [[0, 0], [20, 0]], len: 20, hw: 2.75, prof: [[0, 10], [20, 12]] };
+test('embankAt_underTheDeck_reachesTheUnderside', () => {
+  close(embankAt(DECK, 10, 1), 11 - UNDERPASS.deck);
+});
+test('embankAt_besideTheDeck_fallsFromTheSurface', () => {
+  close(embankAt(DECK, 10, DECK.hw + 3), 11 - 3 * EMBANK.fall);
+});
+test('embankAt_pastAnEnd_carriesTheEndSurfaceRunOn', () => {
+  close(embankAt(DECK, -2, 0), 10); close(embankAt(DECK, 20 + EMBANK.run, 0), 12);
+});
+test('embankAt_pastTheRun_falls', () => {
+  close(embankAt(DECK, -EMBANK.run - 4, 0), 10 - 4 * EMBANK.fall);
+  close(embankAt(DECK, 20 + EMBANK.run + 2, DECK.hw + 1), 12 - 3 * EMBANK.fall);
 });
