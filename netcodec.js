@@ -4,7 +4,7 @@
 
 import { KINDS, KNOCKABLE, KNOCK_SOUNDS } from './knock.js';   // #1112: the sounds a knock message may carry; #1191: the kinds and their sounds. knock.js is pure too
 
-export const CODE_VERSION = 3;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix; #1191: knock names the prop)
+export const CODE_VERSION = 4;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix; #1191: knock names the prop; #1190: the pontoon message)
 export const CODE_TTL = 600;        // seconds a code stays valid (10 minutes, shown as a countdown)
 export const CODE_SKEW = 60;        // seconds a code may lie in the future before it reads as expired (clock skew between devices)
 export const CODE_MAX = 16000;      // characters: a longer code is refused unread
@@ -235,6 +235,31 @@ function parseKnock(m) {
   return { ...out, k: m.k, i: m.i, a: m.a };
 }
 
+// #1190: one pontoon bridge action. lay/take are a guest's request to the host, sync the host's state to the guests
+// (d absent = no bridge). The deck carries only the geometry that cannot be re-derived; everything else is
+// range-checked against what crossingLine can produce, so a forged deck cannot place a bridge in the sky.
+const PONTOON_LEN_MAX = 600;        // m: maxWidth 400 + roadReach 80 + aprons
+function parseDeck(d) {
+  if (!d || typeof d !== 'object') return null;
+  for (const k of ['a', 'b', 'h', 'r']) if (!Array.isArray(d[k])) return null;
+  if (d.a.length !== 2 || d.b.length !== 2 || d.h.length !== 3 || d.r.length !== 2) return null;
+  if (![...d.a, ...d.b, ...d.h, ...d.r, d.built, d.dir].every(finite)) return null;
+  if ([...d.a, ...d.b].some((v) => Math.abs(v) > POS_MAX)) return null;
+  const len = Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]);
+  if (len <= 0 || len > PONTOON_LEN_MAX) return null;
+  if (!d.h.every((v) => v >= Y_MIN && v <= Y_MAX)) return null;
+  if (d.r.some((v) => v < 0) || d.r[0] + d.r[1] > len + 0.01) return null;
+  if (d.built < 0 || d.built > 1) return null;
+  if (d.dir !== 1 && d.dir !== -1) return null;
+  return { a: [...d.a], b: [...d.b], h: [...d.h], r: [...d.r], built: d.built, dir: d.dir };
+}
+function parsePontoon(m) {
+  if (m.op === 'take') return m.d === undefined ? { type: 'pontoon', op: 'take' } : null;          // a take carries no deck
+  if (m.op === 'lay') { const d = parseDeck(m.d); return d && d.built === 0 && d.dir === 1 ? { type: 'pontoon', op: 'lay', d } : null; }   // a lay is a fresh build
+  if (m.op === 'sync') { const d = m.d === undefined ? undefined : parseDeck(m.d); return d ? { type: 'pontoon', op: 'sync', d } : d === undefined ? { type: 'pontoon', op: 'sync' } : null; }
+  return null;
+}
+
 const VALIDATORS = {
   hello: (m) => { const name = cleanName(m.name); return name ? { type: 'hello', name, custom: m.custom === true } : null; },
   pick: (m, ctx) => (ctx.carIds.has(m.car) && ctx.paintIds.has(m.paint) ? { type: 'pick', car: m.car, paint: m.paint } : null),
@@ -252,6 +277,8 @@ const VALIDATORS = {
   back: () => ({ type: 'back' }),
   // #1112: one knocked-over prop. #1191: k/i/a name it and say which way it went.
   knock: parseKnock,
+  // #1190: one pontoon bridge action -- a guest's lay/take request or the host's sync.
+  pontoon: parsePontoon,
 };
 
 function parsePlayer(raw, ctx) {

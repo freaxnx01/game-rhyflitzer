@@ -7,7 +7,7 @@ const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.re
 
 test('encodeCode_hostOffer_roundTripsWithRegion', async () => {
   const c = await encodeCode('H', SDP, 'hochrhein', 1000);
-  assert.match(c, /^R3H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
+  assert.match(c, /^R4H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
   assert.deepEqual(await decodeCode(c, 'H', 1010), { ok: true, t: 1000, g: 'hochrhein', sdp: SDP });
 });
 
@@ -24,14 +24,14 @@ test('encodeCode_noDeflateStream_null', async () => {
 test('decodeCode_wrongRoleVersionOrAge_namedError', async () => {
   const g = await encodeCode('G', SDP, null, 1000), h = await encodeCode('H', SDP, 'hochrhein', 1000);
   assert.equal((await decodeCode(g, 'H', 1000)).error, 'role'); assert.equal((await decodeCode(g, 'G', 1000)).ok, true);
-  assert.equal((await decodeCode(h.replace(/^R3/, 'R4'), 'H', 1000)).error, 'version');
+  assert.equal((await decodeCode(h.replace(/^R4/, 'R5'), 'H', 1000)).error, 'version');
   assert.equal(CODE_TTL, 600);
   assert.equal((await decodeCode(h, 'H', 1601)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 939)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 1600)).ok, true);
 });
 
 test('decodeCode_garbageOrHuge_formatOrSize', async () => {
-  for (const g of ['', 'hello', 'R3H.', 'R3H.!!!!', 'R3H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
-  assert.equal((await decodeCode('R3H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
+  for (const g of ['', 'hello', 'R4H.', 'R4H.!!!!', 'R4H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
+  assert.equal((await decodeCode('R4H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
 });
 
 const CTX = { carIds: new Set(['compact', 'bus']), paintIds: new Set(['navy', 'signal']), regions: new Set(['hochrhein', 'ehrendingen']) };
@@ -127,6 +127,20 @@ test('parseMessage_knock_validated', () => {
     assert.equal(parseMessage(m, CTX), null, m);
 });
 
+const WD = { a: [0, 0], b: [100, 0], h: [3, 2.5, 2.5], r: [10, 10], built: 0, dir: 1 };
+test('parseMessage_pontoon_validated', () => {
+  const j = (o) => JSON.stringify({ type: 'pontoon', ...o });
+  assert.deepEqual(parseMessage(j({ op: 'lay', d: WD }), CTX), { type: 'pontoon', op: 'lay', d: WD });
+  assert.deepEqual(parseMessage(j({ op: 'take' }), CTX), { type: 'pontoon', op: 'take' });
+  assert.deepEqual(parseMessage(j({ op: 'sync' }), CTX), { type: 'pontoon', op: 'sync' });
+  assert.equal(parseMessage(j({ op: 'sync', d: { ...WD, built: 0.4, dir: -1 } }), CTX).d.built, 0.4);
+  for (const o of [{ op: 'x' }, { op: 'lay' }, { op: 'lay', d: { ...WD, built: 0.5 } }, { op: 'lay', d: { ...WD, dir: -1 } },
+    { op: 'sync', d: { ...WD, dir: 0 } }, { op: 'sync', d: { ...WD, b: [700, 0] } }, { op: 'sync', d: { ...WD, a: [60000, 0] } },
+    { op: 'sync', d: { ...WD, r: [60, 60] } }, { op: 'sync', d: { ...WD, r: [-1, 5] } }, { op: 'sync', d: { ...WD, h: [3, 2.5, 99999] } },
+    { op: 'sync', d: { ...WD, built: 2 } }, { op: 'sync', d: { ...WD, b: [0, 0] } }, { op: 'take', d: WD }, { op: 'sync', d: { ...WD, a: [null, 0] } }])
+    assert.equal(parseMessage(j(o), CTX), null, JSON.stringify(o));
+});
+
 test('parseMessage_knockWithProp_validated', () => {
   assert.deepEqual(parseMessage('{"type":"knock","s":"clatter","l":0.5,"k":"bin","i":3,"a":-1.2}', CTX),
     { type: 'knock', s: 'clatter', l: 0.5, k: 'bin', i: 3, a: -1.2 });
@@ -144,13 +158,13 @@ test('parseMessage_knockWithProp_validated', () => {
 });
 
 test('joinLinkFor_readJoinHash_roundTrip', () => {
-  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R3H.abc-_XYZ');
-  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R3H.abc-_XYZ');
-  assert.equal(readJoinHash(new URL(link).hash), 'R3H.abc-_XYZ');
+  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R4H.abc-_XYZ');
+  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R4H.abc-_XYZ');
+  assert.equal(readJoinHash(new URL(link).hash), 'R4H.abc-_XYZ');
 });
 
 test('readJoinHash_noJoinOrEmpty_null', () => {
-  for (const h of ['', '#', '#join=', '#join=   ', '#other=R3H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
+  for (const h of ['', '#', '#join=', '#join=   ', '#other=R4H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
 });
 
 // #837 part a: the race messages — start race (t0, now), cp, finish, cpno, back, and the board.
