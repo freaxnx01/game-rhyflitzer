@@ -313,7 +313,7 @@ export function armReach(a, groundAt, len, u = UNDERPASS) {
     return room <= max ? { s: room, why: 'end' } : { s: max, why: 'budget' };
   });
 }
-// #1196: the highest ground over the carriageway (the centre line and both edges) at arc length t of pts. A cut ramp that ends where
+// #1196: the highest ground over the cut's band (the centre line and both edges at hw: the carriageway plus margin and half a wall) at arc length t of pts. A cut ramp that ends where
 // its floor meets the centre line's ground leaves a step across a road lying on a side slope: the ribbon past the cut is lifted over
 // the higher edge, the ribbon in the cut is not.
 export function roadwayGround(ground, pts, t, hw) {
@@ -322,10 +322,10 @@ export function roadwayGround(ground, pts, t, hw) {
   return Math.max(ground(x, z), ground(x + nx, z + nz), ground(x - nx, z - nz));
 }
 // #1196: per side, how far past its reach (where its floor met the centre line) a cut's ramp runs on, until the floor clears the highest
-// ground over the carriageway (`roadway(s)`, s signed from the anchor): the cut stays on the lowered side of the slope, the step the
-// ribbon would make at the reach end becomes the ramp's own grade. Only a side that stopped on the ground gets one; it ends before a
+// ground over the band it lowers (`roadway(s)`, s signed from the anchor): the cut stays on the lowered side of the slope, so the step the
+// ribbon would make at the reach end becomes the ramp's own grade and no face is left at the end. Only a side that stopped on the ground gets one; it ends before a
 // junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m.
-export const TLM_TAIL_MAX = 30;
+export const TLM_TAIL_MAX = 40;
 export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
   return [-1, 1].map((dir, k) => {
     if (a.stop?.[k] !== 'ground') return 0;
@@ -401,7 +401,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS, tail = 
         const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
         const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
         arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
-        if (tail) arm.tail = armTail(arm, (s) => roadwayGround(ground, o.pts, t + s, arm.hw), polylineLength(o.pts), junctions, u);   // #1196: a TLM cut
+        if (tail) arm.tail = armTail(arm, (s) => roadwayGround(ground, o.pts, t + s, arm.hw + u.margin + u.wall / 2), polylineLength(o.pts), junctions, u);   // #1196: a TLM cut
         // an arm that runs out of budget on a road climbing steeper than its grade ends there, below the ground (capping it
         // instead lifts the floor above the deck's underside and loses the underpass); from there its floor runs out to the
         // ground, losing the depth d left at the end over d / u.runout m, so the road has no step (review of #156)

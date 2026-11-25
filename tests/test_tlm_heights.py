@@ -20,7 +20,7 @@ STEIN = (-888, 1206)
 KOENIGSWEG = (4609, 5563)
 # crossings whose road passes under a deck farther from every tlmUnder sample than TLM_UNDER_REACH (8 m): the world data has no measured
 # road height for them, the cut keeps its pre-TLM depth. test_uncovered_crossings_are_really_uncovered checks the exemption against the data.
-UNCOVERED = [(-650, 1062), (-3996, 498)]
+UNCOVERED = [(-650, 1062), (-610, 1064), (-3996, 498)]
 UNDER_REACH = 8
 
 

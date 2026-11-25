@@ -74,5 +74,5 @@ test('armTail_continuesTheRampUntilItClearsTheCarriageway', async () => {
   assert.equal(armTail(a, (s) => cutFloor(a, s), 100, [])[1], 0);   // nothing above the floor: no tail
   const [, cut] = armTail(a, () => 1.6, 100, [[0, 20]]);            // a junction 10 m into the tail ends it a half width plus margin before
   assert.ok(cut <= 10 - UNDERPASS.margin - a.hw && cut > 0, String(cut));
-  assert.equal(armTail(a, () => 9, 100, [])[1], 30);                // capped
+  assert.equal(armTail(a, () => 9, 100, [])[1], 40);                // capped
 });
