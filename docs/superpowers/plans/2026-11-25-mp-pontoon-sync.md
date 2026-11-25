@@ -43,7 +43,7 @@ test('parseMessage_pontoon_validated', () => {
 });
 ```
 
-- [ ] Run (fails), then add `pontoon: parsePontoon` to `VALIDATORS`: pure `parsePontoon(m)` with helper `parseDeck(d, op)` returning a fresh `{ a, b, h, r, built, dir }` or null, per the spec's validation list (`len = hypot`, `0 < len <= 600`, `POS_MAX`, `Y_MIN..Y_MAX`, ramp sum, `built` 0..1, `dir` +-1, `lay` needs `built === 0 && dir === 1`, `take` no `d`, `sync` `d` optional). Bump `CODE_VERSION` and update its comment. Fix any `CODE_VERSION` literal in tests (`grep -n "R2" tests/*.mjs`). Run `node --test tests/netcodec.test.mjs`.
+- [ ] Run (fails), then add `pontoon: parsePontoon` to `VALIDATORS`: pure `parsePontoon(m)` with helper `parseDeck(d, op)` returning a fresh `{ a, b, h, r, built, dir }` or null, per the spec's validation list (`len = hypot`, `0 < len <= 600`, `POS_MAX`, `Y_MIN..Y_MAX`, ramp sum, `built` 0..1, `dir` +-1, `lay` needs `built === 0 && dir === 1`, `take` no `d`, `sync` `d` optional). Bump `CODE_VERSION` and update its comment. Fix every literal of the old `CODE_VERSION` in tests, `.mjs` and `.py` alike (e.g. `R2`, `R2H.`, `R2G.` in `tests/joinhandoff.test.mjs`, `tests/test_join_handoff.py`, `tests/test_multiplayer_lobby.py`; if #1191 landed first the old value is 3): `grep -n "R<old>" tests/*.mjs tests/*.py`. Run `node --test tests/netcodec.test.mjs`.
 
 ## Task 3: pontoonAllowed in netsync.js
 
