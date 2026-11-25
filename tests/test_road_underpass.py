@@ -12,14 +12,14 @@ MMH = ROOT / "data" / "terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 RUTI = [[-871.0, 1071.3], [-876.8, 1120.3], [-879.7, 1149.8]]        # w31970306 + w31970308
 RUTI_DECKS = {51687867: (-873.4, 1091.4), 51688069: (-874.8, 1103.1)}
-SEATS = {51687867: (21.50, 21.21), 51688069: (21.10, 21.49), 4985551: (22.65, 23.75), 4988444: (21.93, 22.78),
+SEATS = {51687867: (21.50, 21.21), 51688069: (21.10, 21.49), 4985551: (22.24, 23.31), 4988444: (21.93, 22.22),   # #1151: real heights (swissTLM3D)
          25976772: (0.04, 0.04),   # main, 2026-11-17
          # #1152: road on its profile, the Gartenstrasse bank roads seat these decks (was (55.59, 54.56) and (54.33, 56.11))
-         107186388: (54.89, 53.26), 107186377: (53.81, 55.80)}
-EXPECTED = 12
+         107186388: (54.89, 53.26), 107186377: (53.54, 55.26)}   # #1151: real heights (swissTLM3D) for 107186377
+EXPECTED = 13   # #1151: real heights (swissTLM3D) -- the service-road crossing (1797, 1010) is a kept cut now (was 12)
 # capped even with the deck and its bank roads kept out of the network: dropped, the site stays as on main
 DROPPED = {(345612508, 107186377): (3908.5, 4036.9), (345612508, 107186388): (3913.7, 4024.3),   # Gartenstrasse: footbridge w138786586 starts in the cut
-           (1238831069, 1382546970): (1797.0, 1010.1),                                           # service road: dead end w925856926 in the cut
+           # (1238831069, 1382546970) at (1797.0, 1010.1) was dropped here; #1151: real heights (swissTLM3D) make it a kept cut (depth 1.48)
            (162941411, 162987100): (-1550.0, -324.2)}                                            # Lohgerbe: Werderstrasse meets its bank road's far end
 NO_TERRAIN = {331388063: (-2882.8, -238.0), 319322059: (-3530.7, -1955.9)}   # lower road id -> crossing (Jurastrasse, Basler Strasse)
 LOHGERBE = (-1550.0, -324.2)
