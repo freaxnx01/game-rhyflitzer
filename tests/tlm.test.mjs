@@ -48,3 +48,14 @@ test('fineWeight_perCentreRadii', () => {
   assert.equal(fineWeight(10, 0, c), 1); assert.equal(fineWeight(30, 0, c), 0);
   assert.equal(fineWeight(40, 0, [[0, 0]]), 1); assert.equal(fineWeight(FINE_BANK.outer, 0, [[0, 0]]), 0);
 });
+test('fineCells_objectCentres_useOwnOuter', async () => {
+  const { fineCells } = await import('../world.js');
+  const G = { x0: 0, z0: 0, dx: 16, dz: 16, nx: 20, nz: 20 };
+  const small = fineCells([{ x: 160, z: 160, inner: 16, outer: 28 }], G);
+  const big = fineCells([{ x: 160, z: 160, inner: 48, outer: 72 }], G);
+  assert.ok(small.length > 0 && small.length < big.length, `${small.length} vs ${big.length}`);
+  assert.deepEqual(fineCells([[160, 160]], G), big);
+  const both = fineCells([{ x: 160, z: 160, inner: 16, outer: 28 }, [160, 160]], G, 72);
+  const key = (a) => a.map(String).sort();
+  assert.deepEqual(key(both), key(big));
+});

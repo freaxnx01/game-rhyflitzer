@@ -526,11 +526,15 @@ export function fineWeight(x, z, centres, opts = FINE_BANK) {
   return w;
 }
 // the cells with any point closer than `outer` to a bank: every edge they share with an unpatched cell lies at outer or beyond
+// (#1196: a centre may be { x, z, outer } with its own radius)
 export function fineCells(centres, G, outer = FINE_BANK.outer) {
   const out = new Map();
-  for (const [cx, cz] of centres) for (const [i, j] of patchCells([cx - outer, cz - outer, cx + outer, cz + outer], G)) {
-    const x = Math.max(G.x0 + i * G.dx, Math.min(cx, G.x0 + (i + 1) * G.dx)), z = Math.max(G.z0 + j * G.dz, Math.min(cz, G.z0 + (j + 1) * G.dz));
-    if (Math.hypot(x - cx, z - cz) < outer) out.set(i + ',' + j, [i, j]);
+  for (const c of centres) {
+    const cx = c.x ?? c[0], cz = c.z ?? c[1], o = c.outer ?? outer;
+    for (const [i, j] of patchCells([cx - o, cz - o, cx + o, cz + o], G)) {
+      const x = Math.max(G.x0 + i * G.dx, Math.min(cx, G.x0 + (i + 1) * G.dx)), z = Math.max(G.z0 + j * G.dz, Math.min(cz, G.z0 + (j + 1) * G.dz));
+      if (Math.hypot(x - cx, z - cz) < o) out.set(i + ',' + j, [i, j]);
+    }
   }
   return [...out.values()];
 }
