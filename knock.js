@@ -202,6 +202,10 @@ export function stepPoo(c, dt, gy) {
 // ---------- sounds: a recipe is a list of events; knock.js's player turns it into Web Audio nodes ----------
 // event: { t, dur, gain, noise: { type, freq, q } | tone: { f0, f1, wave } }
 export function soundLevel(speed) { return clamp(0.3 + speed / 22, 0.3, 1); }
+// #1191: a knock from another device: its action, and the car from direction + sound level
+export const fallAction = (kind) => (kind === 'lamp' ? 'bend' : 'fly');
+export const remoteSpeed = (level) => clamp((level - 0.3) * 22, 3, 15.4);
+export function remoteCar(angle, level) { const s = remoteSpeed(level); return { vx: Math.cos(angle) * s, vz: Math.sin(angle) * s }; }
 const noiseEv = (t, dur, gain, type, freq, q = 1) => ({ t, dur, gain, noise: { type, freq, q } });
 const toneEv = (t, dur, gain, f0, f1 = f0, wave = 'sine') => ({ t, dur, gain, tone: { f0, f1, wave } });
 const bell = (t, f, gain, dur) => [1, 2.76, 5.4, 8.93].map((m, i) => toneEv(t, dur / (1 + i * 0.6), gain / (1 + i * 0.9), f * m, f * m, i % 2 ? 'triangle' : 'sine'));
