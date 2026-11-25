@@ -32,7 +32,7 @@ def place(page, xz, th):
 
 
 def wait_on(page, on=True):
-    page.wait_for_function(f"() => window.__mm.pontoon().on === {on}", polling=250, timeout=T)
+    page.wait_for_function("(want) => window.__mm.pontoon().on === want", arg=on, polling=250, timeout=T)
 
 
 def wait_dir(page, dir_):
