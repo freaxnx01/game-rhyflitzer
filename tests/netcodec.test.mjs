@@ -7,7 +7,7 @@ const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.re
 
 test('encodeCode_hostOffer_roundTripsWithRegion', async () => {
   const c = await encodeCode('H', SDP, 'hochrhein', 1000);
-  assert.match(c, /^R2H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
+  assert.match(c, /^R3H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
   assert.deepEqual(await decodeCode(c, 'H', 1010), { ok: true, t: 1000, g: 'hochrhein', sdp: SDP });
 });
 
@@ -24,14 +24,14 @@ test('encodeCode_noDeflateStream_null', async () => {
 test('decodeCode_wrongRoleVersionOrAge_namedError', async () => {
   const g = await encodeCode('G', SDP, null, 1000), h = await encodeCode('H', SDP, 'hochrhein', 1000);
   assert.equal((await decodeCode(g, 'H', 1000)).error, 'role'); assert.equal((await decodeCode(g, 'G', 1000)).ok, true);
-  assert.equal((await decodeCode(h.replace(/^R2/, 'R3'), 'H', 1000)).error, 'version');
+  assert.equal((await decodeCode(h.replace(/^R3/, 'R4'), 'H', 1000)).error, 'version');
   assert.equal(CODE_TTL, 600);
   assert.equal((await decodeCode(h, 'H', 1601)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 939)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 1600)).ok, true);
 });
 
 test('decodeCode_garbageOrHuge_formatOrSize', async () => {
-  for (const g of ['', 'hello', 'R2H.', 'R2H.!!!!', 'R2H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
-  assert.equal((await decodeCode('R2H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
+  for (const g of ['', 'hello', 'R3H.', 'R3H.!!!!', 'R3H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
+  assert.equal((await decodeCode('R3H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
 });
 
 const CTX = { carIds: new Set(['compact', 'bus']), paintIds: new Set(['navy', 'signal']), regions: new Set(['hochrhein', 'ehrendingen']) };
@@ -127,14 +127,30 @@ test('parseMessage_knock_validated', () => {
     assert.equal(parseMessage(m, CTX), null, m);
 });
 
+test('parseMessage_knockWithProp_validated', () => {
+  assert.deepEqual(parseMessage('{"type":"knock","s":"clatter","l":0.5,"k":"bin","i":3,"a":-1.2}', CTX),
+    { type: 'knock', s: 'clatter', l: 0.5, k: 'bin', i: 3, a: -1.2 });
+  assert.deepEqual(parseMessage('{"type":"knock","s":"lamp","l":1,"id":1,"k":"lamp","i":0,"a":3.14}', CTX),
+    { type: 'knock', s: 'lamp', l: 1, id: 1, k: 'lamp', i: 0, a: 3.14 });
+  for (const m of [
+    '{"type":"knock","s":"clatter","l":0.5,"k":"tree","i":3,"a":0}',
+    '{"type":"knock","s":"glass","l":0.5,"k":"bin","i":3,"a":0}',
+    '{"type":"knock","s":"clatter","l":0.5,"k":"bin","i":1.5,"a":0}',
+    '{"type":"knock","s":"clatter","l":0.5,"k":"bin","i":65536,"a":0}',
+    '{"type":"knock","s":"clatter","l":0.5,"k":"bin","i":3,"a":4}',
+    '{"type":"knock","s":"clatter","l":0.5,"k":"bin","i":3}',
+    '{"type":"knock","s":"clatter","l":0.5,"k":"__proto__","i":3,"a":0}'])
+    assert.equal(parseMessage(m, CTX), null, m);
+});
+
 test('joinLinkFor_readJoinHash_roundTrip', () => {
-  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R2H.abc-_XYZ');
-  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R2H.abc-_XYZ');
-  assert.equal(readJoinHash(new URL(link).hash), 'R2H.abc-_XYZ');
+  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R3H.abc-_XYZ');
+  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R3H.abc-_XYZ');
+  assert.equal(readJoinHash(new URL(link).hash), 'R3H.abc-_XYZ');
 });
 
 test('readJoinHash_noJoinOrEmpty_null', () => {
-  for (const h of ['', '#', '#join=', '#join=   ', '#other=R2H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
+  for (const h of ['', '#', '#join=', '#join=   ', '#other=R3H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
 });
 
 // #837 part a: the race messages — start race (t0, now), cp, finish, cpno, back, and the board.

@@ -43,7 +43,7 @@ test('parseHandoff_badShapes_null', () => {
   assert.ok(parseHandoff({ type: 'go', nonce: 'n', to: 'A', code: 'x'.repeat(4001) }));   // a code past the old 4000 bound is legitimate: readJoinHash hands #join= fragments up to netcodec's CODE_MAX on unread
 });
 test('offerJoin_longButLegitimateCode_reachesTheOpenTab', async () => {
-  const open = makeBus(); const got = []; const code = 'R2G.' + 'x'.repeat(5000);   // inside 4001..CODE_MAX: silent drop was the bug
+  const open = makeBus(); const got = []; const code = 'R3G.' + 'x'.repeat(5000);   // inside 4001..CODE_MAX: silent drop was the bug
   listenForJoin({ open, canAccept: () => true, onJoin: (c) => got.push(c), id: 'A' });
   assert.equal(await offerJoin(code, { open, wait: 50, id: 'N' }), true);
   assert.deepEqual(got, [code]);
