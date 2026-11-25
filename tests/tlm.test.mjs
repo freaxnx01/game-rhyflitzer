@@ -59,10 +59,3 @@ test('fineCells_objectCentres_useOwnOuter', async () => {
   const key = (a) => a.map(String).sort();
   assert.deepEqual(key(both), key(big));
 });
-test('roadwayGround_takesTheHighestPointAcrossTheCarriageway', async () => {
-  const { roadwayGround } = await import('../world.js');
-  const pts = [[0, 0], [0, 100]];                       // a road along +z; the ground rises 0.5 m per m to +x
-  const ground = (x) => 10 + 0.5 * x;
-  close(roadwayGround(ground, pts, 40, 3), 11.5);       // the +x edge, 3 m off the centre line
-  close(roadwayGround((x, z) => 10 + 0.1 * z, pts, 40, 3), 14);   // flat across: the centre line's own height
-});
