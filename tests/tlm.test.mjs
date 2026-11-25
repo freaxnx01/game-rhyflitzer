@@ -59,3 +59,20 @@ test('fineCells_objectCentres_useOwnOuter', async () => {
   const key = (a) => a.map(String).sort();
   assert.deepEqual(key(both), key(big));
 });
+test('roadwayGround_takesTheHighestPointAcrossTheCarriageway', async () => {
+  const { roadwayGround } = await import('../world.js');
+  const pts = [[0, 0], [0, 100]];                       // a road along +z; the ground rises 0.5 m per m to +x
+  close(roadwayGround((x) => 10 + 0.5 * x, pts, 40, 3), 11.5);
+  close(roadwayGround((x, z) => 10 + 0.1 * z, pts, 40, 3), 14);   // flat across: the centre line's own height
+});
+test('armTail_continuesTheRampUntilItClearsTheCarriageway', async () => {
+  const { armTail, cutFloor, UNDERPASS } = await import('../world.js');
+  const a = { t: 0, flat: 0, f0: 0, reach: [0, 10], stop: ['end', 'ground'], grade: 0.08, pts: [[0, 0], [0, 100]], hw: 3 };   // floor 0.8 at the reach end
+  const [t0, t1] = armTail(a, () => 1.6, 100, []);
+  assert.equal(t0, 0);                                  // a side that stops on its piece end gets no tail
+  assert.ok(cutFloor(a, 10 + t1) >= 1.6 - 1e-9 && cutFloor(a, 10 + t1 - 1) < 1.6, String(t1));   // 10 m of tail
+  assert.equal(armTail(a, (s) => cutFloor(a, s), 100, [])[1], 0);   // nothing above the floor: no tail
+  const [, cut] = armTail(a, () => 1.6, 100, [[0, 20]]);            // a junction 10 m into the tail ends it a half width plus margin before
+  assert.ok(cut <= 10 - UNDERPASS.margin - a.hw && cut > 0, String(cut));
+  assert.equal(armTail(a, () => 9, 100, [])[1], 30);                // capped
+});

@@ -313,6 +313,30 @@ export function armReach(a, groundAt, len, u = UNDERPASS) {
     return room <= max ? { s: room, why: 'end' } : { s: max, why: 'budget' };
   });
 }
+// #1196: the highest ground over the carriageway (the centre line and both edges) at arc length t of pts. A cut ramp that ends where
+// its floor meets the centre line's ground leaves a step across a road lying on a side slope: the ribbon past the cut is lifted over
+// the higher edge, the ribbon in the cut is not.
+export function roadwayGround(ground, pts, t, hw) {
+  const [x, z] = pointAtLength(pts, t), [ax, az] = pointAtLength(pts, Math.max(0, t - 0.5)), [bx, bz] = pointAtLength(pts, t + 0.5), d = Math.hypot(bx - ax, bz - az) || 1;
+  const nx = -(bz - az) / d * hw, nz = (bx - ax) / d * hw;
+  return Math.max(ground(x, z), ground(x + nx, z + nz), ground(x - nx, z - nz));
+}
+// #1196: per side, how far past its reach (where its floor met the centre line) a cut's ramp runs on, until the floor clears the highest
+// ground over the carriageway (`roadway(s)`, s signed from the anchor): the cut stays on the lowered side of the slope, the step the
+// ribbon would make at the reach end becomes the ramp's own grade. Only a side that stopped on the ground gets one; it ends before a
+// junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m.
+export const TLM_TAIL_MAX = 30;
+export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
+  return [-1, 1].map((dir, k) => {
+    if (a.stop?.[k] !== 'ground') return 0;
+    const room = Math.max(0, dir < 0 ? a.t : len - a.t), r = a.reach[k];
+    let limit = Math.min(TLM_TAIL_MAX, room - r);
+    for (const [jx, jz] of junctions) { const n = nearestOnPolyline(a.pts, jx, jz); if (n.d < a.hw + 2) { const s = dir * (n.t - a.t); if (s > r) limit = Math.min(limit, s - r - a.hw - u.margin); } }
+    let t = 0;
+    while (t < limit && cutFloor(a, r + t, u) < roadway(dir * (r + t)) - 1e-9) t++;
+    return Math.max(0, Math.min(t, limit));
+  });
+}
 // #120: the nodes along a cut or arm inside its reach -- junction points on its road and the piece ends it reaches, never its
 // own anchor; s is signed from the anchor; one node per 0.5 m (a piece end on a junction is one node, an end)
 export function armNodes(a, junctions, len) {
@@ -358,7 +382,7 @@ function continuedFloor(a, pts, t, floor, u) {
 // #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
 // there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
 // first, each piece once. What cannot take an arm becomes a cap point for capFloor.
-export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
+export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS, tail = false) {
   const arms = [], caps = [], used = new Set([cut.road]), queue = [{ a: cut, rise0: 0 }];
   while (queue.length) {
     const { a, rise0 } = queue.shift();
@@ -377,6 +401,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
         const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
         const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
         arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
+        if (tail) arm.tail = armTail(arm, (s) => roadwayGround(ground, o.pts, t + s, arm.hw), polylineLength(o.pts), junctions, u);   // #1196: a TLM cut
         // an arm that runs out of budget on a road climbing steeper than its grade ends there, below the ground (capping it
         // instead lifts the floor above the deck's underside and loses the underpass); from there its floor runs out to the
         // ground, losing the depth d left at the end over d / u.runout m, so the road has no step (review of #156)
@@ -397,7 +422,7 @@ export function cutFloorAt(c, x, z, u = UNDERPASS, ground = null) {
   if (n.d > (c.lat ?? c.hw + u.margin + u.wall / 2)) return null;   // #156: lat, if set, keeps the patch bleed behind the wall
   const b = c.roundEnds ? 0 : beyondEnd(c.pts, x, z, n.t);     // roundEnds (the hideout's cuts): the corridor runs on as a level disc
   if (b !== 0 && Math.abs(s) < 1e-9) return null;                 // behind an anchor at the road end: the road it leaves covers that
-  if (past <= 0) return cutFloor(c, s + b, u);
+  if (past <= (c.tail?.[k] ?? 0)) return cutFloor(c, s + b, u);   // #1196: the ramp's tail runs on past the reach
   const o = c.out?.[k];
   if (!o || !ground || past > o.len) return null;
   return ground(...pointAtLength(c.pts, n.t)) - o.d * (1 - past / o.len);
@@ -422,7 +447,7 @@ export function sharedTrough(x, z, roads, u = UNDERPASS) {
   return facing && Math.hypot(a.px - b.px, a.pz - b.pz) - a.hw - b.hw < u.margin + u.wall + u.margin;
 }
 // the part of its road a cut or arm lowers, run-outs included: [t0, t1]
-export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0)]; }
+export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0) - (c.tail?.[0] ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0) + (c.tail?.[1] ?? 0)]; }
 export function cutBounds(c, u = UNDERPASS) {
   const [a, b] = armSpan(c), pad = c.hw + u.margin + u.wall + 1, n = Math.max(1, Math.ceil(b - a));
   let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
