@@ -1,7 +1,7 @@
 // #835 part a: clock offset, pose track and start column of netsync.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addClockSample, clockOffset, createTrack, pushPose, sampleRemote, gridPose, fadeAlpha, FADE, tagScale, remoteLamps, FLAG, DELAY, EXTRAP, HIDE, RTT_MAX, HEAR_NEAR, HEAR_FAR, hearGain, KNOCK_GAP_MS, knockAllowed } from '../netsync.js';
+import { addClockSample, clockOffset, createTrack, pushPose, sampleRemote, gridPose, fadeAlpha, FADE, tagScale, remoteLamps, FLAG, DELAY, EXTRAP, HIDE, RTT_MAX, HEAR_NEAR, HEAR_FAR, hearGain, KNOCK_GAP_MS, knockAllowed, PONTOON_GAP_MS, pontoonAllowed } from '../netsync.js';
 const pose = (t, x, extra = {}) => ({ id: 1, seq: t, t, x, y: 0, z: 0, rx: 0, ry: 0, rz: 0, vx: 20, vz: 0, steer: 0, flags: 1, ...extra });
 
 test('clockOffset_fiveSamples_median', () => {
@@ -126,4 +126,27 @@ test('knockAllowed_otherSoundOrSlot_gatedIndependently', () => {
 
 test('knockAllowed_nonFiniteTime_dropped', () => {
   assert.equal(knockAllowed({}, 1, 'bin', NaN), false);
+});
+
+test('pontoonAllowed_firstPress_allowedAndRecorded', () => {
+  const seen = {};
+  assert.equal(PONTOON_GAP_MS, 250);
+  assert.equal(pontoonAllowed(seen, 1, 1000), true);
+});
+
+test('pontoonAllowed_withinGap_dropped_notRecorded', () => {
+  const seen = {};
+  pontoonAllowed(seen, 1, 1000);
+  assert.equal(pontoonAllowed(seen, 1, 1100), false);
+  assert.equal(pontoonAllowed(seen, 1, 1250), true);   // measured from the last accepted one, not the dropped one
+});
+
+test('pontoonAllowed_otherSlot_gatedIndependently', () => {
+  const seen = {};
+  pontoonAllowed(seen, 1, 1000);
+  assert.equal(pontoonAllowed(seen, 2, 1001), true);
+});
+
+test('pontoonAllowed_nonFiniteTime_dropped', () => {
+  assert.equal(pontoonAllowed({}, 1, NaN), false);
 });

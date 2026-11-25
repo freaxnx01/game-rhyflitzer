@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PONTOON_CFG, bankNormal, marchToWater, marchToLand, atRhineBank, crossingLine, pontoonLocal, pontoonSurfaceAt, drivableLength, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonHulls, nearDeck, pontoonPrompt } from '../pontoon.js';
+import { PONTOON_CFG, bankNormal, marchToWater, marchToLand, atRhineBank, crossingLine, deckToWire, deckFromWire, pontoonLocal, pontoonSurfaceAt, drivableLength, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonHulls, nearDeck, pontoonPrompt } from '../pontoon.js';
 
 // a straight east-west Rhine between z 50 and 150 (water = negative), the car on the south bank (z < 50), a road strip at z 190..196 on the north bank
 const river = (x, z) => Math.abs(z - 100) - 50;
@@ -156,6 +156,12 @@ test('pontoonPrompt: remove only near a deck, build only at a bank without one',
   assert.equal(pontoonPrompt(null, false, false), null); assert.equal(pontoonPrompt(null, true, false), 'build');
   assert.equal(pontoonPrompt({}, true, true), 'remove'); assert.equal(pontoonPrompt({}, false, true), 'remove');
   assert.equal(pontoonPrompt({}, true, false), null); assert.equal(pontoonPrompt({}, false, false), null);
+});
+
+test('deckToWire/deckFromWire round-trip a crossingLine deck', () => {
+  const d = crossingLine(env(), 0, 25), back = deckFromWire(deckToWire({ ...d, built: 0.5, dir: -1 }));
+  for (const k of ['len', 'ux', 'uz', 'deckH', 'hNear', 'hFar', 'rampNear', 'rampFar']) close(back[k], d[k], 0.02, k);
+  assert.equal(back.nBays, d.nBays); assert.equal(back.hw, d.hw); assert.equal(back.built, 0.5); assert.equal(back.dir, -1);
 });
 
 test('pontoonCorridor: the deck lane plus a run-up on both banks, so forest-edge walls (#175) do not block the ramps', () => {

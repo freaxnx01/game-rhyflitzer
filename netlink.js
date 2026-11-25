@@ -68,6 +68,7 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPose = (
     entry[channel.label] = channel;
     channel.binaryType = 'arraybuffer';
     channel.addEventListener('message', (e) => {
+      if (peers.get(peerId) !== entry) return;   // #1190: the peer was closed (or replaced); a message the browser had already queued is dropped
       if (typeof e.data === 'string') onMessage(peerId, e.data);
       else if (channel.label === 'pose' && e.data instanceof ArrayBuffer) onPose(peerId, e.data);
     });
