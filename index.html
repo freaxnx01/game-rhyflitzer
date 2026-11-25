@@ -1057,7 +1057,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, embankAt, EMBANK, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, roadwayGround, armTail, tlmNoCut, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, embankAt, EMBANK, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, roadwayGround, armTail, tlmNoCut, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH, flatRoofLevels, buriedSolid } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
 import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
@@ -2145,7 +2145,7 @@ let CH_LM = [], CH_LM_BY_OSM = new Map();
 function landmarkReplaces(b, base) {
   const lm = CH_LM_BY_OSM.get(b.id); if (!lm) return false;
   const [cx, cz, w, d, rot] = b.rect;
-  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(base + 3, lm.top), ring: b.ring });
+  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(base + 3, lm.top), ring: b.ring, bldg: true });
   window.__mm.counts.chLandmarks.replaced.push(b.id); return true;
 }
 // #901: the walls of a gable-path OSM house, drawn as fitted quads instead of one tiled box: a plain plaster plinth from
@@ -2189,6 +2189,7 @@ function gableHouseWalls(b, base, h, wc) {
   HOUSE_DOORS.set(b.id, door); window.__mm.counts[ERA_PAST ? 'eraHouseDoors' : 'houseDoors']++;
   return door;
 }
+const BUILDING_TOP = new Map();   // #1200: OSM building id -> the top of its solid (__mm.buildingTop)
 function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
@@ -2202,15 +2203,16 @@ function osmBuilding(b) {
     if (landmarkReplaces(b, base)) return;   // #649: after all the branch's rr()/rnd() draws, so every later building keeps its colours
     if (row) box(w, h + 3, d, cx, base - 3, cz, rot, col('#ffffff'), 'rowHouse', rowHouseTile(b), 3.1);
     else gableHouseWalls(b, base, h, wc);
-    gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
+    gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: base + h, bldg: true }); return;   // #1200: bldg: a buried building part cannot block
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);
   if (landmarkReplaces(b, base)) return;   // #649: after the branch's rr() draw, so every later building keeps its colours
   if (isBodenacker6(b) && bodenackerBuilding(b, base, h)) return;   // #410: own model; the rr() draw above keeps every later colour
-  if (row) extrudeFootprint(b.ring, base, h, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true);
-  else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
-  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: base + h, ring: b.ring });   // #36: walls drawn from the ring collide as the ring; the rectangle stays for the grid, free() and the camera
+  const wallH = flatRoofLevels(b.ring, h, terrainH).top - base;   // #1200: the roof stands on the ground under the centroid (where h was measured); the walls reach down to the lowest ring point
+  if (row) extrudeFootprint(b.ring, base, wallH, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true);
+  else extrudeFootprint(b.ring, base, wallH, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, wallH] : [4, 3]);
+  const solid = { x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: base + wallH, ring: b.ring, bldg: true }; pushOBB(solid); BUILDING_TOP.set(b.id, solid.h);   // #36: walls drawn from the ring collide as the ring; the rectangle stays for the grid, free() and the camera
 }
 // #410: one vertical quad per body wall (extrudeFootprint draws whole rings only); u restarts per wall, like its uPerFace.
 // below: how far under base the quads reach (2 m like extrudeFootprint; 0 where a foundation skirt carries the wall on, #445)
@@ -5718,6 +5720,7 @@ function footBlocks(o, x, z, y, under) {
   if (under && !o.secret && !o.parked) return false;
   if (o.bridge) return y >= (o.y0 ?? 0.4);
   if (y >= o.h - 0.05) return false;
+  if (buriedSolid(o, terrainH(x, z))) return false;   // #1200
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
 const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !o.carOnly && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []), POSTAUTO.colliders);   // #567: carOnly colliders (the Plattform core) are not the walker's; #500: Postautos too
@@ -6341,7 +6344,7 @@ const YAW_GAIN = 1.0, YAW_CLAMP = 0.05;
 // steering turns the car the other way in reverse; across a standstill of the forward speed it fades through zero instead of
 // flipping, or a car sliding sideways (handbrake turn: forward speed ~0) flips its own sign with each step and shakes left-right
 const STEER_FADE = 2;   // m/s
-function collide(r) { const under = caveInside(); const reach = VEH.collision.shape === 'capsule' ? r + VEH.collision.hl * VEH.scale : r; for (const o of [...gridQuery(OBB_GRID, P.x, P.z, reach + 2), ...POSTAUTO.colliders]) { if (under && !o.secret) continue; if (o.off) continue; /* #415: a knocked-over lamp or hydrant */ if (Math.abs(o.x - P.x) > o.hw + o.hd + reach + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + reach + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const best = deepestHit(o, carCircles(), r, colliderPush); /* from where the last push left the car, like the single circle before */ if (!best) continue; const { wx, wz, pen } = best.hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } const d = VEH_OFFSETS[best.i]; if (d !== 0) P.th += wallYaw(d, P.th, wx, wz, pen, YAW_GAIN, YAW_CLAMP); } }
+function collide(r) { const under = caveInside(); const reach = VEH.collision.shape === 'capsule' ? r + VEH.collision.hl * VEH.scale : r; for (const o of [...gridQuery(OBB_GRID, P.x, P.z, reach + 2), ...POSTAUTO.colliders]) { if (under && !o.secret) continue; if (o.off) continue; /* #415: a knocked-over lamp or hydrant */ if (Math.abs(o.x - P.x) > o.hw + o.hd + reach + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + reach + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (buriedSolid(o, terrainH(P.x, P.z))) continue; /* #1200: its top is under the ground here */ if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const best = deepestHit(o, carCircles(), r, colliderPush); /* from where the last push left the car, like the single circle before */ if (!best) continue; const { wx, wz, pen } = best.hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } const d = VEH_OFFSETS[best.i]; if (d !== 0) P.th += wallYaw(d, P.th, wx, wz, pen, YAW_GAIN, YAW_CLAMP); } }
 function stepCar(dt) {
   LIGHTS.braking = false;   // #230: reset every step so it never sticks (airborne, flying, coasting)
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
@@ -8915,6 +8918,7 @@ function compileLooks(root) {
     if (flip) { setCave(false); renderer.compile(root, camera, scene); }
   } catch (err) { console.warn('pre-compile of a late model failed', err); }
 }
+window.__mm.buildingTop = (id) => BUILDING_TOP.get(id) ?? null;   // #1200
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(loop); return; }   // #875: stepped capture mode -- the clock stands still, only __mm.tick moves the game
