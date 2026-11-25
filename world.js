@@ -281,6 +281,11 @@ export function tlmUnderAt(under, x, z) {
 }
 // the cut floor under a deck: the measured road y yU, but at least TLM_CLEAR_MIN under the deck's underside, never deeper than maxDepth
 export function tlmFloorTarget(surface, yU, ground, u = UNDERPASS) { return Math.max(Math.min(yU, surface - u.deck - TLM_CLEAR_MIN) - u.lift, ground - u.maxDepth); }
+// #1196: a road whose highest point over the crossing (the ground over its carriageway: where the ribbon will lie) is already within 0.5 m of
+// the measured road, and clear of the deck by TLM_CLEAR_MIN, needs no cut: a trough that shallow on a side slope only makes steps and
+// spikes beside the road (Ankengasse under its road decks, 0.3 m over TLM). The ground alone is no measure: the ribbon lifts above it.
+export const TLM_NO_CUT = 0.5;
+export function tlmNoCut(roadTop, yU, surface, u = UNDERPASS) { return roadTop - yU <= TLM_NO_CUT - 0.05 && roadTop <= surface - u.deck - TLM_CLEAR_MIN; }
 export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
 // #120: the points the network cannot descend through (dead ends, bridge joins, arms out of budget) keep their ground:
 // f0 >= ground - rise, rise = how far the floor climbs from the crossing to that point along the network
@@ -324,7 +329,8 @@ export function roadwayGround(ground, pts, t, hw) {
 // #1196: per side, how far past its reach (where its floor met the centre line) a cut's ramp runs on, until the floor clears the highest
 // ground over the band it lowers (`roadway(s)`, s signed from the anchor): the cut stays on the lowered side of the slope, so the step the
 // ribbon would make at the reach end becomes the ramp's own grade and no face is left at the end. Only a side that stopped on the ground gets one; it ends before a
-// junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m.
+// junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m; one that
+// would have to stop before it clears the band is dropped altogether (a tail cut short leaves an open face at its end).
 export const TLM_TAIL_MAX = 40;
 export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
   return [-1, 1].map((dir, k) => {
@@ -334,7 +340,7 @@ export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
     for (const [jx, jz] of junctions) { const n = nearestOnPolyline(a.pts, jx, jz); if (n.d < a.hw + 2) { const s = dir * (n.t - a.t); if (s > r) limit = Math.min(limit, s - r - a.hw - u.margin); } }
     let t = 0;
     while (t < limit && cutFloor(a, r + t, u) < roadway(dir * (r + t)) - 1e-9) t++;
-    return Math.max(0, Math.min(t, limit));
+    return t < limit || cutFloor(a, r + t, u) >= roadway(dir * (r + t)) - 1e-9 ? Math.max(0, t) : 0;   // all or nothing: a tail cut short leaves a face
   });
 }
 // #120: the nodes along a cut or arm inside its reach -- junction points on its road and the piece ends it reaches, never its

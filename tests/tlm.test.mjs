@@ -72,7 +72,13 @@ test('armTail_continuesTheRampUntilItClearsTheCarriageway', async () => {
   assert.equal(t0, 0);                                  // a side that stops on its piece end gets no tail
   assert.ok(cutFloor(a, 10 + t1) >= 1.6 - 1e-9 && cutFloor(a, 10 + t1 - 1) < 1.6, String(t1));   // 10 m of tail
   assert.equal(armTail(a, (s) => cutFloor(a, s), 100, [])[1], 0);   // nothing above the floor: no tail
-  const [, cut] = armTail(a, () => 1.6, 100, [[0, 20]]);            // a junction 10 m into the tail ends it a half width plus margin before
-  assert.ok(cut <= 10 - UNDERPASS.margin - a.hw && cut > 0, String(cut));
-  assert.equal(armTail(a, () => 9, 100, [])[1], 40);                // capped
+  assert.equal(armTail(a, () => 1.6, 100, [[0, 20]])[1], 0);       // a junction 10 m into the tail leaves no room for the 10 m it needs: no tail
+  assert.equal(armTail(a, () => 1.6, 100, [[0, 40]])[1], 10);      // one 30 m in leaves enough
+  assert.equal(armTail(a, () => 9, 100, [])[1], 0);                 // would need more than TLM_TAIL_MAX: none
+});
+test('tlmNoCut_roadAlreadyWithinToleranceOfTheMeasuredOne', async () => {
+  const { tlmNoCut } = await import('../world.js');
+  assert.equal(tlmNoCut(20.4, 20, 30), true);            // the highest road point is 0.4 m above the measured road: within 0.5 m
+  assert.equal(tlmNoCut(20.6, 20, 30), false);           // 0.6 m: cut
+  assert.equal(tlmNoCut(20.4, 20, 24), false);           // under the clearance bound (24 - 1.2 - 3.0 = 19.8): the clearance needs the cut
 });
