@@ -30,13 +30,13 @@ export function hearGain(d) {
 
 // ---- #1179: the host's own gate on a relayed knock ----
 export const KNOCK_GAP_MS = 60;   // the same gap netSendKnock keeps per sound
-// knockAllowed(seen, slot, sound, now) — true (and records now) if this slot's knock of this sound is at least KNOCK_GAP_MS after
-// the last accepted one. `seen` is the caller's plain object; a refused knock is not recorded.
-export function knockAllowed(seen, slot, sound, now) {
+// knockAllowed(seen, slot, key, now) — true (and records now) if this slot's knock of this key (the sound, or 'kind#index',
+// #1191) is at least KNOCK_GAP_MS after the last accepted one. `seen` is the caller's plain object; a refused knock is not recorded.
+export function knockAllowed(seen, slot, key, now) {
   if (!Number.isFinite(now)) return false;
-  const key = slot + ':' + sound;
-  if (now - (seen[key] ?? -Infinity) < KNOCK_GAP_MS) return false;
-  seen[key] = now;
+  const full = slot + ':' + key;
+  if (now - (seen[full] ?? -Infinity) < KNOCK_GAP_MS) return false;
+  seen[full] = now;
   return true;
 }
 

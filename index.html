@@ -2595,7 +2595,7 @@ function propMeshes(props) {
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
   KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.mass = VEH.mass; /* #1122 */ kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
     play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), knocked: netSendKnock, onCount: (n) => { KROW.props = n; showKnockRow(); } });   // #1112: netSendKnock is a hoisted function declaration, the call happens only inside a session
-  window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
+  window.__mm.knock = () => KNOCK.debug(); window.__mm.knockHit = () => { const a = KNOCK.all().find(x => x.kind !== 'lamp' && !x.hit); return a && KNOCK.hit(a.kind, a.i) ? { k: a.kind, i: a.i } : null; };   // #1191 test hook window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
 }
 // #415: the Crash-Platz's board at the head of the run-up lane, yellow like the checkpoint signs
 // #426: a concrete slab over the whole Crash-Platz rectangle, like a big car park but with no markings; 4 cm over the terrain on a 5 m grid
@@ -7066,7 +7066,7 @@ function netHostMessage(peerId, msg) {
   if (id === undefined) return;                          // nothing a peer sends counts before its hello
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
-  if (msg.type === 'knock') { if (!knockAllowed(knockSeen, id, msg.s, performance.now())) { NET.bad++; return; } netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, { type: 'knock', s: msg.s, l: msg.l, id }); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose); #1179: the host's own per-slot, per-sound gate drops a flood before it is played or relayed
+  if (msg.type === 'knock') { if (!knockAllowed(knockSeen, id, msg.k !== undefined ? msg.k + '#' + msg.i : msg.s, performance.now())) { NET.bad++; return; } netFallKnock(msg); netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, knockMsg(msg.s, msg.l, msg, id)); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose); #1179: the host's own per-slot, per-sound gate drops a flood before it is played or relayed; #1191: gated per prop, so a pile reaches everyone
   if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
   if (msg.type === 'finish') { if (NET.race?.state && NET.race.go) netHostFinish(id, raceMs(), peerId); return; }   // #837 part d: the finish is stamped from the host's clock too
   if (msg.type === 'pick') {
@@ -7099,7 +7099,7 @@ function netHostDrop(peerId) {
   if (NET.race?.state && id !== undefined) { NET.race.state = dropRacer(NET.race.state, id); netRaceBoard(); }   // #837 part d: a guest who drops mid-race is DNF
 }
 function netGuestMessage(msg) {
-  if (msg.type === 'knock') { if (msg.id !== undefined && msg.id !== NET.you && NET.lobby?.players.some((p) => p.id === msg.id)) netHearKnock(msg.id, msg.s, msg.l); else NET.bad++; return; }   // #1112: a knock arrives only through the host, and only with its stamped id of another player
+  if (msg.type === 'knock') { if (msg.id !== undefined && msg.id !== NET.you && NET.lobby?.players.some((p) => p.id === msg.id)) { netFallKnock(msg); netHearKnock(msg.id, msg.s, msg.l); } else NET.bad++; return; }   // #1112: a knock arrives only through the host, and only with its stamped id of another player
   if (msg.type === 'lobby') { stopHello(); NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
@@ -7519,16 +7519,19 @@ const NETHEARD = { horn: 0, knock: 0, last: null };
 const netGainTo = (id) => { const e = NETCARS.get(id); return e && e.mesh ? hearGain(Math.hypot(e.mesh.position.x - P.x, e.mesh.position.z - P.z)) : 0; };
 function netHearHorn(entry, id) { const g = netGainTo(id); if (g < 0.02) return; SFX.hornAt(VEHICLES[entry.car]?.sound?.horn || VEH.sound.horn, g); NETHEARD.horn++; NETHEARD.last = { kind: 'horn', id, g }; }
 function netHearKnock(id, s, l) { const g = netGainTo(id); if (g < 0.02) return; SFX.knock(s, l * g); NETHEARD.knock++; NETHEARD.last = { kind: s, id, g }; }
-// one reliable message per knocked prop, gated per sound so a pile of bins is not a burst of repeats; the id is
-// stamped by the host, never taken from a guest's message
 let knockSentAt = {};
-let knockSeen = {};   // #1179: the host's per-slot, per-sound knock gate
-function netSendKnock(s, l) {
+let knockSeen = {};   // #1179: the host's per-slot knock gate (#1191: keyed per sound, or per prop)
+function netSendKnock(s, l, prop) {
   if (!NET.session || !NET.link) return;
-  const now = performance.now(); if (now - (knockSentAt[s] ?? -1e9) < 60) return; knockSentAt[s] = now;
-  if (NET.role === 'H') { for (const peerId of NET.slots.keys()) NET.link.send(peerId, { type: 'knock', s, l, id: NET.you }); }
-  else NET.link.send(HOST_ID, { type: 'knock', s, l });
+  const now = performance.now();
+  if (!prop) { if (now - (knockSentAt[s] ?? -1e9) < 60) return; knockSentAt[s] = now; }   // #1191: a prop falls once until restored: never gated
+  if (NET.role === 'H') { for (const peerId of NET.slots.keys()) NET.link.send(peerId, knockMsg(s, l, prop, NET.you)); }
+  else NET.link.send(HOST_ID, knockMsg(s, l, prop));
 }
+// #1191: wire form; prop = { k, i, a } or a parsed knock, id = stamped slot (undefined from a guest)
+const knockMsg = (s, l, prop, id) => (prop && prop.k !== undefined ? { type: 'knock', s, l, k: prop.k, i: prop.i, a: prop.a, id } : { type: 'knock', s, l, id });
+// #1191: the other player's prop falls here too, at any distance
+function netFallKnock(msg) { if (msg.k !== undefined && KNOCK) KNOCK.knockRemote(msg.k, msg.i, msg.a, msg.l); }
 // from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
 function stepNetCars() {
   if (!NET.session) return;
