@@ -1057,7 +1057,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, embankAt, EMBANK, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, roadwayGround, armTail, tlmNoCut, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
 import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
@@ -1072,10 +1072,10 @@ import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpa
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
 import { offerJoin, listenForJoin } from './joinhandoff.js';   // #1111: an invite link clicked in a second tab joins in the open one
-import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, raceLocksSwitch } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, finishHeld, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
-import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); netClockOffset: ferrisride.js already owns `clockOffset`
+import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps, knockAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); netClockOffset: ferrisride.js already owns `clockOffset`
 import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, BUMP_DY, HIT_WINDOW } from './netbump.js';   // #836: car-to-car contact in a shared drive
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
@@ -1117,7 +1117,7 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { DELIV, DEPOTS, mulberry32, nearestPlace, buildAddresses, resolveDepots, homeDepots, pickOrder, newShift, beginOrder, tick as delivTick, applyImpact as delivImpact, applyPenalty as delivPenalty, isNewBest } from './delivery.js';
-import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor, withLobbyButton } from './pause.js';
+import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor, withLobbyButton, withoutRestartInNetRace } from './pause.js';
 import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
@@ -1523,12 +1523,12 @@ if (L) for (const r of L.bridges) {
   const len = polylineLength(r.pts), kind = L.anchors.landmarks.holzbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.holzbruecke.x, L.anchors.landmarks.holzbruecke.z).d < 15 ? 'wood'
     : L.anchors.landmarks.fridolinsbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.fridolinsbruecke.x, L.anchors.landmarks.fridolinsbruecke.z).d < 15 ? 'stone' : 'generic';
   // the two hero bridges use the hand models' deck widths, so physics and visuals agree
-  const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0, modern: !!r.modern }; OSM_BRIDGES.push(b);   // #530: modern = not there in 1952
+  const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0, modern: !!r.modern, ...(r.tlm ? { tlmSamples: r.tlm, under: r.tlmUnder ?? [] } : {}) }; OSM_BRIDGES.push(b);   // #530: modern = not there in 1952
   for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...r.pts[i], ...r.pts[i + 1], b.hw * 2, b);
 }
 // #76: OSM railway bridges become rail decks -- ground from above like a road bridge (onBridge), nothing to a car underneath
 if (L) for (const rb of L.railBridges) {
-  const b = { r: { pts: rb.pts, w: 5.5 }, len: polylineLength(rb.pts), hw: 2.75, kind: 'rail', layer: rb.layer, h0: 0, h1: 0 };
+  const b = { r: { pts: rb.pts, w: 5.5 }, len: polylineLength(rb.pts), hw: 2.75, kind: 'rail', layer: rb.layer, h0: 0, h1: 0, ...(rb.tlm ? { tlmSamples: rb.tlm.map(([t, y]) => [t, y - TLM_RAIL_TOP]), under: rb.tlmUnder ?? [] } : {}) };   // #1196: measured heights; the sample is the top of the rail
   OSM_BRIDGES.push(b); RAIL_DECKS.push(b);
   for (let i = 0; i < rb.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...rb.pts[i], ...rb.pts[i + 1], b.hw * 2, b);
 }
@@ -1569,8 +1569,7 @@ function buildStoneChain() {
   banks.sort((A, B) => A[0][0] - B[0][0]);
   const mid = (k) => [k.reduce((s, p) => s + p[0], 0) / k.length, k.reduce((s, p) => s + p[1], 0) / k.length];
   // #259: patch the banks first, so their tops (H), the abutments and the roads draped there sit on the measured ground
-  FINE_BANKS = banks.map(mid); FINE_GROUND = FINE_BANKS.map(([x, z]) => smoothedGround(baseH, [x - FINE_BANK.outer, z - FINE_BANK.outer, x + FINE_BANK.outer, z + FINE_BANK.outer]));
-  for (const [i, j] of fineCells(FINE_BANKS, TGRID)) { const key = i + ',' + j; FINE_KEYS.add(key); CUT_CELLS.set(key, cellHeights(i, j, TGRID, CUT_N, patchGround)); }
+  addFineCentres(banks.map(mid).map(([x, z]) => ({ x, z, ...FINE_BANK })), 16);
   const H = banks.map(k => bankHeight(k) ?? terrainH(k[0][0], k[0][1]));
   STONE_AXIS = { a: mid(banks[0]), ha: H[0], e: mid(banks[1]), he: H[1] };
   for (const b of chain) for (const k of [0, 1]) b['h' + k] = deckLine(STONE_AXIS.a, H[0], STONE_AXIS.e, H[1], ...end(b, k));
@@ -1582,7 +1581,7 @@ function buildStoneChain() {
 // `surf` is the surface the bank top is read from: the bare terrain while the world is still being laid out, the ground the car
 // actually drives on (roadTopH) once the road ribbons exist -- seating a metre below those leaves the bank climbing past the end.
 function seatGenericEnds(surf = terrainH) {
-  for (const b of OSM_BRIDGES) { if (b.kind !== 'generic' || b.approach) continue;
+  for (const b of OSM_BRIDGES) { if (b.kind !== 'generic' || b.approach || b.tlm) continue;   // #1196: a TLM deck keeps the heights fillTlmDecks gave it
     for (const k of [0, 1]) { const p = b.r.pts, end = k ? p[p.length - 1] : p[0], prev = k ? p[p.length - 2] : p[1];
       const roads = roadsFrom(end, new Set()); if (!roads.length) continue;
       const seat = roads.map(({ pts }) => seatEnd(sampleH(cutPolyline(pts, END_SEAT.reach), 1, surf))).reduce((a, s) => s.h < a.h ? s : a);
@@ -1591,7 +1590,47 @@ function seatGenericEnds(surf = terrainH) {
       if (seat.reach > b.hw) { const d = Math.hypot(end[0] - prev[0], end[1] - prev[1]) || 1, ux = (end[0] - prev[0]) / d, uz = (end[1] - prev[1]) / d;
         gridAddSegment(BRIDGE_GRID, end[0], end[1], end[0] + ux * seat.reach, end[1] + uz * seat.reach, b.hw * 2, b); } } }
 }
-function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); buildStoneChain(); }
+// #1196: a deck with swissTLM3D samples gets a height profile pinned to the surface it joins at each end: a switch end takes that
+// deck's surface, a road deck end `surf` at the end point (terrainH while laying out, roadTopH once the ribbons exist; a joint to another bridge piece keeps its end sample).
+// #1202: a rail end keeps its measured sample -- the bare-earth DTM under it is the gap under the bridge, 1-3 m below the rail; embankFill raises the ground to it
+// Hero chains (wood/stone, approaches) never carry samples. Without samples a deck is left as it was.
+function fillTlmDecks(decks, surf) {
+  for (const b of decks) { if (!b.tlmSamples || b.kind === 'wood' || b.kind === 'stone' || b.approach) continue;
+    const p = b.r.pts, end = (k) => k ? p[p.length - 1] : p[0], joint = (k) => b.kind === 'generic' && !roadsFrom(end(k), new Set()).length,   // joined only to another bridge piece: no bank road to meet, the ground below may be a gorge
+      at = (k) => { const sw = b.kind === 'rail' ? switchUnder(b, ...end(k)) : null; return sw ? bridgeSurfaceAt(sw.o, sw.t) : b.kind === 'rail' || joint(k) ? b.tlmSamples[k ? b.tlmSamples.length - 1 : 0][1] : surf(...end(k)); };
+    b.h0 = at(0); b.h1 = at(1); b.prof = tlmProfile(b.tlmSamples, b.len, b.h0, b.h1); b.tlmJoint = [joint(0), joint(1)]; b.tlm = true; }
+}
+// #1196: a TLM rail deck's ends lie on the measured embankment, not the 16 m mesh: one fine centre per end (ends closer than 4 m share one),
+// so fillTlmDecks reads the ground the 1 m patches draw. Built before the deck ends are read.
+function railEndCentres() {
+  const out = [];
+  for (const b of OSM_BRIDGES) { if (b.kind !== 'rail' || !b.tlmSamples) continue;
+    for (const p of [b.r.pts[0], b.r.pts[b.r.pts.length - 1]]) if (!out.some((c) => Math.hypot(c.x - p[0], c.z - p[1]) < 4)) out.push({ x: p[0], z: p[1], inner: TLM_FINE.inner, outer: TLM_FINE.outer }); }
+  return out;
+}
+// #1202: the TLM rail decks, filled before the fine patches are drawn, so patchGround can raise their embankment (embankFill)
+const EMBANK_DECKS = [];
+function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); fillTlmDecks(RAIL_DECKS, terrainH); EMBANK_DECKS.push(...RAIL_DECKS.filter((b) => b.tlm).map((b) => ({ b: { pts: b.r.pts, len: b.len, hw: b.hw, prof: b.prof }, box: deckBox(b, EMBANK_REACH) }))); addFineCentres(railEndCentres(), TLM_FINE.r); fillTlmDecks(OSM_BRIDGES, terrainH); buildStoneChain(); }
+// #1202: the embankment under and around the TLM rail decks (embankAt), never on a road or its trough (face + wall). Along a cut arm's
+// span the arm's walls retain it: it starts where the arm's lowering ends (lat), inside the wall, as the cut's own patches do. Beside any
+// other road it falls from `ground` at the trough's edge at EMBANK.fall, so no bare face opens. ARMS is empty until buildCuts, which
+// draws every fine cell again once they exist.
+const EMBANK_REACH = 20;
+function deckBox(b, m) { const xs = b.r.pts.map((p) => p[0]), zs = b.r.pts.map((p) => p[1]); return [Math.min(...xs) - m, Math.min(...zs) - m, Math.max(...xs) + m, Math.max(...zs) + m]; }
+function embankFill(x, z, ground) {
+  let f = -Infinity;
+  for (const { b, box } of EMBANK_DECKS) if (x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3]) f = Math.max(f, embankAt(b, x, z));
+  if (f === -Infinity) return f;
+  for (const { r, i } of gridQuery(ROAD_GRID, x, z, 16)) { if (r.bridge) continue;
+    const d = segDist(x, z, ...r.pts[i], ...r.pts[i + 1]);
+    const arm = walledArm(r, x, z); if (arm) { if (d < arm.lat) return -Infinity; continue; }
+    const off = d - (r.w / 2 + UNDERPASS.margin + UNDERPASS.wall); if (off < 0) return -Infinity;
+    f = Math.min(f, ground + off * EMBANK.fall); }
+  return f;
+}
+// the cut arm on road r whose span (ramps and tails) reaches the point's foot on r, if any
+const walledArm = (r, x, z) => ARMS.find((a) => { if (a.road !== r) return false; const t = nearestOnPolyline(a.pts, x, z).t, [t0, t1] = armSpan(a); return t >= t0 && t <= t1; });
+
 // #42: inside a grade's band (the track fan over the Südspange cutting) a deck end lying on another deck is a switch: it
 // takes that deck's surface, not the ground's, so the fan is one level slab (two passes for a switch on a switch)
 const inGradeBand = (x, z) => !!L && L.grades.some((g) => nearestOnPolyline(g.pts, x, z).d < g.hw + GRADE_BAND);
@@ -1626,25 +1665,36 @@ function meshH(x, z) {
 // face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
 const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [], SLOPES = [];
+// #1152: terrain fitted to the road profiles, FIT_N x FIT_N patches per 16 m cell (key 'i,j' -> heights, row-major (FIT_N+1)^2)
+const NO_PROFILE = new URLSearchParams(location.search).get('noprofile') === '1';   // A/B for the cost measurement
+const FIT_N = 4, FIT_MARGIN = fitMargin(FIT_N), FIT_CELLS = new Map(), FIT_GRID = makeGrid(32), FIT_ROADS = [], YIELD_CELLS = new Set();
+const FIT_STATS = { roads: 0, cells: 0, triangles: 0, ms: 0 };
 // #42: graded roads (the Südspange's cutting): one more source for the patches. gradedH is the uncut mesh brought down to
 // their profile and banks -- the ground #76's cuts are sized on, so a crossing inside a grade cuts only what the grade
 // does not already give (nothing, at the Südspange: no walls, no arms there). Without grades gradedH === meshH.
 const GRADE_CUTS = [];
 function gradedH(x, z) { let d = 0; for (const gc of GRADE_CUTS) d = Math.max(d, gradeCutAt(gc, x, z, meshH)); return meshH(x, z) - d; }
 // #259: the stone chain's bank points; around them the patches follow the smoothed measured ground, blended back to the mesh
-let FINE_BANKS = [], FINE_GROUND = [];
+// #1196: a centre is { x, z, inner, outer, ground } -- the stone chain's banks (48/72, r 16) and the TLM rail deck ends (16/28, r 4)
+const FINE_BANKS = [];
 const FINE_KEYS = new Set();
-function fineGroundAt(x, z) { let k = 0; for (let n = 1; n < FINE_BANKS.length; n++) if (Math.hypot(x - FINE_BANKS[n][0], z - FINE_BANKS[n][1]) < Math.hypot(x - FINE_BANKS[k][0], z - FINE_BANKS[k][1])) k = n; return FINE_GROUND[k](x, z); }
-function patchGround(x, z) { const g = gradedH(x, z); if (!FINE_BANKS.length) return g; const w = fineWeight(x, z, FINE_BANKS); return w ? g + w * (fineGroundAt(x, z) - meshH(x, z)) : g; }
+function addFineCentres(centres, r) {
+  const fresh = centres.map((c) => ({ ...c, ground: smoothedGround(baseH, [c.x - c.outer, c.z - c.outer, c.x + c.outer, c.z + c.outer], r) }));
+  FINE_BANKS.push(...fresh);
+  for (const [i, j] of fineCells(fresh, TGRID)) { const key = i + ',' + j; FINE_KEYS.add(key); CUT_CELLS.set(key, cellHeights(i, j, TGRID, CUT_N, patchGround)); }
+}
+// the centre that weighs most at (x, z) supplies the ground (the nearest, where a bank and a rail end overlap, would not match the weight)
+function fineGroundAt(x, z) { let best = null, bw = -1; for (const c of FINE_BANKS) { const w = fineWeight(x, z, [c]); if (w > bw) { bw = w; best = c; } } return best.ground(x, z); }
+// the ground a cut or wall measures as "before the cut": the grade-lowered mesh, with the fine patches' measured ground blended in
+function patchGround(x, z) { const g = gradedH(x, z); if (!FINE_BANKS.length) return g; const w = fineWeight(x, z, FINE_BANKS); if (!w) return g; const f = g + w * (fineGroundAt(x, z) - meshH(x, z)); return f + w * Math.max(0, embankFill(x, z, f) - f); }   // #1202: plus the TLM rail embankment
+const uncutH = patchGround;
 const PATCH_BLEED = Math.SQRT2 * Math.max(TGRID.dx, TGRID.dz) / CUT_N;   // #156: how far a patch's triangles carry one lowered vertex
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
-  if (CUT_CELLS.size && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
-    const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), p = CUT_CELLS.get(i + ',' + j);
-    if (p) {
-      const sx = (fx - i) * CUT_N, sz = (fz - j) * CUT_N, a = Math.min(Math.floor(sx), CUT_N - 1), b = Math.min(Math.floor(sz), CUT_N - 1), W = CUT_N + 1;
-      return triLerp(p[b * W + a], p[(b + 1) * W + a], p[(b + 1) * W + a + 1], p[b * W + a + 1], sx - a, sz - b);
-    }
+  if ((CUT_CELLS.size || FIT_CELLS.size) && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
+    const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), key = i + ',' + j, p = CUT_CELLS.get(key);
+    if (p) return patchH(p, CUT_N, fx - i, fz - j);
+    const q = FIT_CELLS.get(key); if (q) return patchH(q, FIT_N, fx - i, fz - j);   // #1152: the fit beside a profiled road
   }
   return meshH(x, z);
 }
@@ -1683,11 +1733,17 @@ function gradeCaps(g, crossings) {
 // the network never enters nor caps at (a road cut's own deck and its bank roads)
 function makeCut(c, deck = RAIL_DECKS[c.bridge], minFloor = -Infinity, skip = new Set()) {
   const b = deck, hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), len = polylineLength(c.road.pts), deckMin = deckMinAt(c, b);
-  const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return gradedH(x, z); };
+  const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return uncutH(x, z); };
   const near = [...new Set([...gridQuery(ROAD_GRID, c.x, c.z, 250)].map(({ r }) => r))].filter((r) => !skip.has(r.id));
-  const target = cutFloorTarget(deckMin, groundAt(0));
-  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: Math.max(target, minFloor), raised: minFloor > target, capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [] };
-  settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, gradedH); });
+  const yU = b.tlm ? tlmUnderAt(b.under, c.x, c.z) : null;   // #1196: the measured road under a TLM deck
+  // #1196: the highest the road lies over the flat run (the ground over its carriageway); where that is within tolerance of TLM already, no cut
+  let roadTop = -Infinity; if (yU !== null) for (let s = -flat + UNDERPASS.apron; s <= flat - UNDERPASS.apron; s += 1) roadTop = Math.max(roadTop, roadwayGround(uncutH, c.road.pts, c.tRoad + s, hw));
+  const target = yU === null ? cutFloorTarget(deckMin, groundAt(0)) : tlmNoCut(roadTop, yU, deckMin) ? groundAt(0) : tlmFloorTarget(deckMin, yU, groundAt(0));
+  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: Math.max(target, minFloor), raised: minFloor > target, capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [], tlmRoad: yU };
+  settleCut(cut, (c) => {
+    const r = armReach(c, groundAt, len); c.reach = r.map((p) => p.s); c.stop = r.map((p) => p.why);
+    if (b.tlm) c.tail = armTail(c, (s) => roadwayGround(uncutH, c.pts, c.t + s, hw + UNDERPASS.margin + UNDERPASS.wall / 2), len, L.junctions);   // #1196: a TLM cut's ramp runs on until it clears the carriageway
+    return cutNetwork(c, near, L.junctions, uncutH, undefined, !!b.tlm); });
   if (cut.unsettled) console.warn(`underpass at ${c.road.n} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): the cut floor did not settle; kept the shallowest capped floor`);
   for (const a of cut.arms) a.deck = b;
   cut.depth = Math.max(0, groundAt(0) - cut.f0);
@@ -1715,7 +1771,7 @@ function cutFloorMin(x, z) {
     const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
-function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
+function cutDepth(x, z) { return uncutH(x, z) - terrainH(x, z); }
 // #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
 // the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
 function hallTerrainPads() {
@@ -1762,8 +1818,38 @@ function buildCuts() {
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
+  // #1202: the TLM embankment knows its walls only now (embankFill reads ARMS): its fine cells once more
+  for (const key of FINE_KEYS) { const [i, j] = key.split(',').map(Number), x0 = G.x0 + i * G.dx, z0 = G.z0 + j * G.dz;
+    if (EMBANK_DECKS.some(({ box }) => x0 <= box[2] && x0 + G.dx >= box[0] && z0 <= box[3] && z0 + G.dz >= box[1])) CUT_CELLS.set(key, fillCell(i, j).p); }
 }
 if (L) buildCuts();
+// #1152: every profiled road's fit, in FIT_N patches; cells the 1 m patches own (and the cave) yield
+let YIELD_IDX = null, YIELD_IDX_N = -1;   // the yield table, rebuilt when the cells change (buildFit adds them before any weight is read)
+function profileWeight(x, z) { if (YIELD_IDX_N !== YIELD_CELLS.size) { YIELD_IDX = yieldIndex(YIELD_CELLS, TGRID); YIELD_IDX_N = YIELD_CELLS.size; } return yieldWeight(YIELD_CELLS, TGRID, x, z, undefined, YIELD_IDX); }
+// is a 1 m patch in reach of any point of cell (i, j)? yieldWeight looks 1 + ramp/dx cells around a point, a point of this
+// cell lies in cells i - 1 .. i + 1 (its far border rounds up) -- false means weight 1 throughout, no per-vertex scan
+function yieldNear(i, j, G) { const r = 2 + Math.ceil(FIT.ramp / G.dx); for (let b = j - r; b <= j + r; b++) for (let a = i - r; a <= i + r; a++) if (YIELD_CELLS.has(a + ',' + b)) return true; return false; }
+function buildFit() {
+  const t0 = performance.now(), G = TGRID, W = FIT_N + 1, seen = new Set(), cellR = Math.hypot(G.dx, G.dz) / 2 + 0.5;
+  for (const key of CUT_CELLS.keys()) YIELD_CELLS.add(key);
+  if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), G)) YIELD_CELLS.add(i + ',' + j);
+  for (const r of L.roads) { if (!r.zp || r.bridge) continue; const f = fitRoad(r, meshH, FIT_MARGIN); FIT_ROADS.push(f); for (let i = 0; i < f.pts.length - 1; i++) gridAddSegment(FIT_GRID, ...f.pts[i], ...f.pts[i + 1], f.outer, { f, i }); }
+  for (const f of FIT_ROADS) for (const [i, j] of gradeCells(f, G)) {   // gradeCells reads only pts and outer
+    const key = i + ',' + j; if (seen.has(key) || YIELD_CELLS.has(key)) continue; seen.add(key);
+    // one grid query and one yield scan for the whole cell: cellR covers it, so every vertex sees the same candidates
+    const cands = gridQuery(FIT_GRID, G.x0 + (i + 0.5) * G.dx, G.z0 + (j + 0.5) * G.dz, cellR);
+    if (!cands.size) continue;
+    const free = !yieldNear(i, j, G), p = new Float32Array(W * W); let moved = false;
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) {
+      const x = G.x0 + (i + k / FIT_N) * G.dx, z = G.z0 + (j + b / FIT_N) * G.dz, m = meshH(x, z);
+      const w = free ? 1 : profileWeight(x, z), d = w ? w * roadFitAt(cands, x, z, m, FIT_MARGIN) : 0;
+      p[b * W + k] = m + d; if (Math.abs(d) > FIT.eps) moved = true;
+    }
+    if (moved) FIT_CELLS.set(key, p);
+  }
+  Object.assign(FIT_STATS, { roads: FIT_ROADS.length, cells: FIT_CELLS.size, triangles: FIT_CELLS.size * (2 * FIT_N * FIT_N - 2), ms: performance.now() - t0 });
+}
+if (L && !NO_PROFILE) buildFit();
 const ROAD_CUT_DECKS = new Set(ROAD_CUTS.filter((c) => c.depth > 0).map((c) => c.deck));   // #1044: the road decks a kept road cut runs under
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
 function roofedAt(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal); }
@@ -1797,7 +1883,8 @@ function streamNameAt(x, z) { for (const { sf, i } of gridQuery(STREAM_GRID, x, 
 function segS(pts, i, x, z) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az; return ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1); }
 // a point past a segment's end and before the next one's start (the outer side of a bend, or a joint itself in rounding) lies on
 // the strip's mitred corner: it takes the joint's heights
-function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { if (sf.modern && ERA.on) continue; const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
+// hits (a debug collector, #1152): every strip this reads and its height there, so a test can tell a road's own ribbon from one drawn over it
+function surfH(grid, x, z, hits = null) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { if (sf.modern && ERA.on) continue; const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; const v = f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f); if (hits) hits.push({ sf, h: v }); h = Math.max(h, v); } return h; }
 // #277: the levels. The surface keeps today's ground and colliders; the ring and the eight rooms register theirs on the first ride (ringBuild).
 const LEVELS = createLevels(); const SURFACE_GRID = OBB_GRID;
 function groundH(x, z, y) { return LEVELS.isSurface() ? surfaceGroundH(x, z, y) : LEVELS.groundAt(x, z, y); }
@@ -1909,15 +1996,16 @@ function fieldMeshes(list, countsKey) {   // #530: today's strips and the 1952 o
   });
   window.__mm.counts[countsKey] = counts;
 }
-function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain); colorize(g, c); push(role, g); return g; }
+function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false, hFn = null) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain, hFn); colorize(g, c); push(role, g); return g; }
 function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // mitred polyline strip, shared vertices at joints; hFn: lay it on another surface
-  const clean = dropRepeats(src), pts = onTerrain || hFn ? resample(clean, 4) : clean; const hAt = (p) => hFn ? hFn(p) + y : onTerrain ? terrainH(p[0], p[1]) + y : y;
+  // hFn(p, t): t is the arc length of p's vertex along the centre line, undefined for a point inside a quad (the lift's probes)
+  const clean = dropRepeats(src), pts = onTerrain || hFn ? resample(clean, 4) : clean; const hAt = (p, t) => hFn ? hFn(p, t) + y : onTerrain ? terrainH(p[0], p[1]) + y : y;
   const L = pts.length, left = [], right = [], dist = [0]; for (let i = 1; i < L; i++) dist.push(dist[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   for (let i = 0; i < L; i++) { const p = pts[i]; const d0 = i > 0 ? [p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]] : null, d1 = i < L - 1 ? [pts[i + 1][0] - p[0], pts[i + 1][1] - p[1]] : null; const nz = (d) => { const l = Math.hypot(d[0], d[1]); return [-d[1] / l, d[0] / l]; }; let n; let sc = hw; if (d0 && d1) { const a = nz(d0), b = nz(d1); n = [a[0] + b[0], a[1] + b[1]]; const l = Math.hypot(n[0], n[1]) || 1; n = [n[0] / l, n[1] / l]; sc = hw / Math.max(0.35, n[0] * a[0] + n[1] * a[1]); } else n = nz(d0 || d1); left.push([p[0] - n[0] * sc, p[1] - n[1] * sc]); right.push([p[0] + n[0] * sc, p[1] + n[1] * sc]); }
   // edge heights; on terrain, #290: lift both ends of a quad by the most the ground rises over its drawn triangles anywhere
   // across and along it (a fold between the edges, or the quad's own twist), so the strip stays on top
-  const hl = left.map(hAt), hr = right.map(hAt);
-  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
+  const hl = left.map((p, i) => hAt(p, dist[i])), hr = right.map((p, i) => hAt(p, dist[i]));
+  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt, 0.5, 1, dist); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
   const pos = [], uv = [], nrm = []; for (let i = 0; i < L - 1; i++) { const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } const v0 = dist[i] / tileLen, v1 = dist[i + 1] / tileLen; uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.surf = { pts, hw, hl, hr }; return g;
 }
@@ -2560,7 +2648,8 @@ function propMeshes(props) {
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
   KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.mass = VEH.mass; /* #1122 */ kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
     play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), knocked: netSendKnock, onCount: (n) => { KROW.props = n; showKnockRow(); } });   // #1112: netSendKnock is a hoisted function declaration, the call happens only inside a session
-  window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
+  window.__mm.knock = () => KNOCK.debug(); window.__mm.knockHit = () => { const a = KNOCK.all().find(x => x.kind !== 'lamp' && !x.hit); return a && KNOCK.hit(a.kind, a.i) ? { k: a.kind, i: a.i } : null; };   // #1191 test hook
+  window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
 }
 // #415: the Crash-Platz's board at the head of the run-up lane, yellow like the checkpoint signs
 // #426: a concrete slab over the whole Crash-Platz rectangle, like a big car park but with no markings; 4 cm over the terrain on a 5 m grid
@@ -2688,11 +2777,12 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // #101: a terrain vertex inside the Rhine goes down to the bed, in sand (the smooth style ignores vertex colours: green there)
   const groundVertex = (x, z) => { const h = terrainH(x, z), rd = riverDist(x, z), wl = rd < 0 ? waterLevelAt(x, z, 1e4) : null; return wl === null ? { h, c: groundCol(h, x, z) } : { h: Math.min(h, wl - bedDepth(rd)), c: BED_COL }; };
   { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const { h, c } = groundVertex(x, z); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
-  if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 1 m patches (the same heights terrainH returns)
+  if (CUT_CELLS.size || FIT_CELLS.size) { // #76: drop the coarse cells under a cut (#1152: under a fit) and draw their patches (the same heights terrainH returns)
     const p = ground.attributes.position, idx = ground.index.array, keep = [];
     for (let k = 0; k < idx.length; k += 3) {
       const cx = (p.getX(idx[k]) + p.getX(idx[k + 1]) + p.getX(idx[k + 2])) / 3, cz = (p.getZ(idx[k]) + p.getZ(idx[k + 1]) + p.getZ(idx[k + 2])) / 3;
-      if (!CUT_CELLS.has(Math.floor((cx - TGRID.x0) / TGRID.dx) + ',' + Math.floor((cz - TGRID.z0) / TGRID.dz))) keep.push(idx[k], idx[k + 1], idx[k + 2]);
+      const key = Math.floor((cx - TGRID.x0) / TGRID.dx) + ',' + Math.floor((cz - TGRID.z0) / TGRID.dz);
+      if (!CUT_CELLS.has(key) && !FIT_CELLS.has(key)) keep.push(idx[k], idx[k + 1], idx[k + 2]);
     }
     ground.setIndex(keep);
   }
@@ -2701,15 +2791,23 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // which keeps a 4 m sub-block that is wholly flat floor or wholly lid at 2 triangles
   const caveCells = new Set(); if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) caveCells.add(i + ',' + j);
   // (a sub-block of flat floor or of unlowered hill is planar on the grid's own split, so cellTris' 2 triangles are exact there)
+  // one cell drawn as an n x n patch, heights and colours from groundVertex (so from terrainH): #76's cuts at CUT_N, #1152's fits at FIT_N
+  const patchGeo = (i, j, n) => {
+    const p = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, n, n);
+    p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
+    const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
+    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), { h, c } = groundVertex(x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
+    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); return p;
+  };
   for (const key of CUT_CELLS.keys()) {
     const [i, j] = key.split(',').map(Number), cave = caveCells.has(key);
     const g = cave ? cellGeo(cellTris(i, j, terrainH, () => true, () => true), groundCol) : null;
     if (g) { HIDE.floorTris += g.attributes.position.count / 3; parts.grass.push(g); continue; }
-    const p = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
-    p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
-    const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
-    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), { h, c } = groundVertex(x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
-    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p);
+    parts.grass.push(patchGeo(i, j, CUT_N));
+  }
+  for (const key of FIT_CELLS.keys()) {   // #1152: the fitted cells, FIT_N x FIT_N, heights from terrainH (the fit)
+    const [i, j] = key.split(',').map(Number);
+    parts.grass.push(patchGeo(i, j, FIT_N));
   }
   if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy under it, wound to face down (ceiling, into stone)
     // #201: the ceiling is ceilingH (tunnels capped at 12 m, rooms the hill's underside, the lobby 14 m)
@@ -2741,8 +2839,13 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
-  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
-  if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
+  // #1152: a profiled road's height at p, blended to the draped terrain in yield zones. The station is ribbonGeo's own arc
+  // length where it has one: a nearest-point search snaps a hairpin ramp's edge points to the branch coming back beside it
+  // (8.5 m out on the A3 slip road w25015881), where the strip's station is unambiguous.
+  function roadHeightFn(r) { const pts = dropRepeats(r.pts); return (p, t) => { const s = t === undefined ? nearestOnPolyline(pts, p[0], p[1]).t : t, w = profileWeight(p[0], p[1]), y = roadProfileH(r, s); return w >= 1 ? y : w * y + (1 - w) * terrainH(p[0], p[1]); }; }
+  const onProfile = (r) => !!r.zp && !!L && !NO_PROFILE;
+  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true, onProfile(r) ? roadHeightFn(r) : null).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
+  if (L) { seatGenericEnds(roadTopH); fillTlmDecks(ROAD_DECKS, roadTopH); }   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   await loadStage('markings');
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
     const mats = {}, geos = {}, geosModern = {};
@@ -2971,7 +3074,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   }
   // one wall piece w, its road point (rx, rz): (rx, rz) + n * d lies d m off the road through the piece
   function troughPiece(road, w, rx, rz, roadArms, atGrade = false) {
-    const inner = road.w / 2 + UNDERPASS.margin, at = (d) => meshH(rx + w.nx * d, rz + w.nz * d), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25));
+    const inner = road.w / 2 + UNDERPASS.margin, at = (d) => uncutH(rx + w.nx * d, rz + w.nz * d), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25));
     // #156: the ground the wall retains -- behind it, or on its own band where the cut still lowers it (on a slope falling away
     // from the road the ground 0.5 m behind can lie below the floor while the band is lowered 0.8 m)
     const ground = Math.max(at(inner + UNDERPASS.wall + 0.5), at(inner + 0.25), at(inner + UNDERPASS.wall / 2));
@@ -6002,6 +6105,14 @@ window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.en
 window.__mm.cave = () => ({ veil: CAVE_MODE.veil && CAVE_MODE.veil.visible ? CAVE_MODE.veil.material.opacity : 0, lining: CAVE_MODE.dark && CAVE_MODE.dark.visible ? CAVE_MODE.dark.material.opacity : 0, liftHouse: !!LIFT_DOORS.top && LIFT_DOORS.top.parent.visible && LIFT_DOORS.top.visible, lamps: HIDE ? HIDE.lights.map(l => l.intensity) : [], dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || TREE_SOLID.some(im => im.visible) || FOREST_MESHES.some(f => f.bill.visible || f.coarse.some(im => im.visible) || (f.fine && f.fine.some(im => im.visible))), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
 window.__mm.level = () => ({ id: LEVELS.id, grid: OBB_GRID === SURFACE_GRID ? 'surface' : 'room', y: P.y });
 window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, level: LEVELS.id });
+window.__mm.roadFit = () => ({ ...FIT_STATS, n: FIT_N, noProfile: NO_PROFILE });   // #1152: cost of the terrain fit
+window.__mm.roadTop = (x, z) => roadTopH(x, z); window.__mm.roadSurf = (x, z) => roadSurfH(x, z); window.__mm.terrainAt = (x, z) => terrainH(x, z);
+window.__mm.profileW = (x, z) => profileWeight(x, z); window.__mm.fitKeys = () => [...FIT_CELLS.keys()];
+// #1152: how many drawn strips cover a point -- more than one (a parallel carriageway, a bridge deck, a ramp) and roadTopH
+// reads the highest of them, not this road's own profile
+window.__mm.surfsAt = (x, z) => { const hits = [], seen = new Set(), out = []; surfH(SURF_GRID, x, z, hits); for (const { sf, h } of hits) { if (seen.has(sf)) continue; seen.add(sf); out.push({ h, hw: sf.hw }); } return out; };
+window.__mm.gridX0 = TGRID.x0; window.__mm.gridZ0 = TGRID.z0; window.__mm.gridNx = TGRID.nx; window.__mm.gridNz = TGRID.nz;
+window.__mm.profiled = () => L ? L.roads.filter((r) => r.zp && !r.bridge).map((r) => ({ id: r.id, cls: r.cls, w: r.w, pts: r.pts, zp: r.zp, zpFrom: r.zpFrom || 0, zpLen: r.zpLen })) : [];
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
 window.__mm.motorwayLabels = () => MOTORWAY_LABELS.map(l => ({ ...l }));   // #226
 window.__mm.minimapNames = () => MAP_NAMES.map(l => ({ ...l }));
@@ -6018,7 +6129,7 @@ function railEndGap(deck, x, z, h) {
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
-  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, deck, clearance: deck - UNDERPASS.deck - road,
+  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, tlm: !!c.deck.tlm, tlmRoad: c.tlmRoad ?? null, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => railEndGap(c.deck, x, z, h))) };
 });
 // #1044: the road cuts, as __mm.crossings (no railGap) plus the lower road's and deck's OSM ids, the water level that raised the
@@ -6030,8 +6141,11 @@ window.__mm.roadCrossings = () => ROAD_CUTS.map(c => {
   let guardDepth = 0; for (const g of c.guards) for (let s = 0; s <= polylineLength(g.pts); s += 1) { const [x, z] = pointAtLength(g.pts, s); if (!railAt(x, z)) guardDepth = Math.max(guardDepth, cutDepth(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail);
   return { x: c.x, z: c.z, road: c.road.n, roadId: c.road.id, deckId: c.deck.r.id, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind },
-           deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
+           tlm: !!c.deck.tlm, tlmRoad: c.tlmRoad ?? null, deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
 });
+window.__mm.fineCentres = () => FINE_BANKS.map(({ x, z, inner, outer }) => ({ x, z, inner, outer }));   // #1196: the 1 m fine patches' centres (stone chain banks, TLM rail ends)
+window.__mm.patchCells = () => CUT_CELLS.size;   // every 1 m patch cell (cuts, fine centres, grades)
+window.__mm.tlmDecks = () => OSM_BRIDGES.filter((b) => b.tlm).map((b) => { const p = b.r.pts; return { kind: b.kind === 'rail' ? 'rail' : 'road', id: b.r.id ?? null, pts: p, h0: b.h0, h1: b.h1, prof: b.prof, endGround: [terrainH(...p[0]), terrainH(...p[p.length - 1])], joint: b.tlmJoint }; });
 window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
 // #1044: the road cuts' arms (the cut road itself included): its road, polyline, half width, floor at the crossing and lowered span
 window.__mm.roadArms = () => ARMS.filter((a) => a.roadCut).map((a) => ({ road: a.road.id, pts: a.pts, hw: a.hw, f0: a.f0, span: armSpan(a), bounds: a.bounds }));
@@ -6356,7 +6470,7 @@ function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 
 function setPipCount(n) { $('cpt').textContent = n; const pips = $('pips'); if (pips.children.length === n) return; pips.replaceChildren(...Array.from({ length: n }, () => document.createElement('div'))); pips.style.gridTemplateColumns = `repeat(${n},1fr)`; }
 function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEWPOINTS.filter(v => eraShown(v, ERA.on)).map(v => VIEW_RUN.shot[VIEWPOINTS.indexOf(v)]) : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.mode === 'view' ? viewShotOffered() : R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
 // armed -> racing is deliberately outside the !FLY.on gate below: helicopter movement starts the clock too, and it runs on in flight (#10)
-function stepRace(dt) { if (R.mode === 'cruise' || R.mode === 'delivery') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon; #107: a shift has its own clock and its own marker */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (NET.race && R.state === 'finished') { R.target = null; return; }   /* #1120: a finished network racer has nothing to point at */ if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; if (NET.race) netRaceCp(best.i); }       else if (best.i < 0 && bd < 7 && R.state === 'racing') { if (NET.race) netRaceFinish(); else finish(); } const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
+function stepRace(dt) { if (R.mode === 'cruise' || R.mode === 'delivery') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon; #107: a shift has its own clock and its own marker */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (NET.race && R.state === 'finished') { R.target = null; return; }   /* #1120: a finished network racer has nothing to point at */ if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } if (best.i < 0 && NET.race?.finishHold) NET.race.finishHold = finishHeld(true, bd);   /* #1169: a refused finish reopens only after leaving the gate */ if (NET.race?.cpHold?.size) for (const i of [...NET.race.cpHold]) if (!finishHeld(true, Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z))) NET.race.cpHold.delete(i);   /* #1184: a refused checkpoint reopens only after leaving it */ R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7 && !NET.race?.cpHold?.has(best.i)) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; if (NET.race) netRaceCp(best.i); }       else if (best.i < 0 && bd < 7 && R.state === 'racing' && !NET.race?.finishHold) { if (NET.race) netRaceFinish(); else finish(); } const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
 function stepHunt(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; { const ob = onBridge(P.x, P.z, P.y); if (ob && ob.pontoon) R.pontoon = true; } SURP = tickSurprises(SURP, dt); animatePresents(dt); drawConfetti(dt); if (HUNT_RUN.endIn > 0) { HUNT_RUN.endIn -= dt; if (HUNT_RUN.endIn <= 0) showHuntResult(); } const i = nearestPresent(HUNT_RUN.spots, HUNT_RUN.found, P.x, P.z); R.target = i < 0 ? null : { ...HUNT_RUN.spots[i], n: '', i, hunt: true }; if (i >= 0 && canCollect(HUNT_RUN.spots[i], P, R.state, FLY.on || FOOT.on)) collectPresent(i); }
 // #508: the clock runs from the first movement; the arrow leads to the nearest open viewpoint, and once there to its subject
 function stepView(dt) {
@@ -7009,7 +7123,7 @@ function netHostMessage(peerId, msg) {
   if (id === undefined) return;                          // nothing a peer sends counts before its hello
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
-  if (msg.type === 'knock') { netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, { type: 'knock', s: msg.s, l: msg.l, id }); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose)
+  if (msg.type === 'knock') { if (!knockAllowed(knockSeen, id, msg.k !== undefined ? msg.k + '#' + msg.i : msg.s, performance.now())) { NET.bad++; return; } netFallKnock(msg); netHearKnock(id, msg.s, msg.l); for (const other of NET.slots.keys()) if (other !== peerId) NET.link.send(other, knockMsg(msg.s, msg.l, msg, id)); return; }   // #1112: the host stamps the sender's slot, an id in the guest's message is never trusted (like netPose); #1179: the host's own per-slot, per-sound gate drops a flood before it is played or relayed; #1191: gated per prop, so a pile reaches everyone
   if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
   if (msg.type === 'finish') { if (NET.race?.state && NET.race.go) netHostFinish(id, raceMs(), peerId); return; }   // #837 part d: the finish is stamped from the host's clock too
   if (msg.type === 'pick') {
@@ -7042,7 +7156,7 @@ function netHostDrop(peerId) {
   if (NET.race?.state && id !== undefined) { NET.race.state = dropRacer(NET.race.state, id); netRaceBoard(); }   // #837 part d: a guest who drops mid-race is DNF
 }
 function netGuestMessage(msg) {
-  if (msg.type === 'knock') { if (msg.id !== undefined && msg.id !== NET.you && NET.lobby?.players.some((p) => p.id === msg.id)) netHearKnock(msg.id, msg.s, msg.l); else NET.bad++; return; }   // #1112: a knock arrives only through the host, and only with its stamped id of another player
+  if (msg.type === 'knock') { if (msg.id !== undefined && msg.id !== NET.you && NET.lobby?.players.some((p) => p.id === msg.id)) { netFallKnock(msg); netHearKnock(msg.id, msg.s, msg.l); } else NET.bad++; return; }   // #1112: a knock arrives only through the host, and only with its stamped id of another player
   if (msg.type === 'lobby') { stopHello(); NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
@@ -7278,11 +7392,12 @@ function netHostPass(id, i, t, peerId) {
 }
 // the host did not count this pass: the checkpoint opens again, so it can be driven once more
 function netReopenCp(i) {
-  if (i === -1) { if (R.state === 'finished') { R.state = 'racing'; setNetFinished(false); for (const c of cpObjs) c.g.visible = true; finishG.visible = true; } return; }   // #837 part d: the finish opens again
+  if (i === -1) { if (R.state === 'finished') { R.state = 'racing'; setNetFinished(false); for (const c of cpObjs) c.g.visible = true; finishG.visible = true; NET.race.finishHold = true; } return; }   // #837 part d: the finish opens again; #1169: held until the car leaves the gate
   const c = cpObjs[i];
   if (!c || !c.done) return;
   c.done = false; c.pillar.material = cpMat; c.ring.visible = true;
   R.done--; updatePips(); finishG.visible = false;
+  (NET.race.cpHold ??= new Set()).add(i);   // #1184: held until the car leaves this checkpoint, like the finish (#1169)
 }
 
 function netStartSession(mode = 'cruise', t0 = null) {
@@ -7295,7 +7410,6 @@ function netStartSession(mode = 'cruise', t0 = null) {
   startRace(race ? 'trial' : 'cruise');                            // #837: a race is the trial's checkpoints under NET.race
   NET.race = race ? { t0, shown: null, go: false } : null;
   if (race && NET.role === 'H') NET.race.state = createRace(NET.lobby, CPS.length);
-  $('pauserestart').hidden = race;                                  // a restart would leave the shared start
   P.safe = (race ? raceGrid : gridPose)([START.x, START.z, START.th], NET.you); resetCar();
   camPos.set(P.x + 12, P.y + 5, P.z);
   syncNetCars();
@@ -7306,7 +7420,7 @@ function netStartSession(mode = 'cruise', t0 = null) {
 function netEndSession() {
   clearInterval(NET.poseTimer);
   for (const id of [...NETCARS.keys()]) dropNetCar(id);
-  knockSentAt = {};   // #1112: a fresh session does not inherit the last drive's knock gates
+  knockSentAt = {}; knockSeen = {};   // #1112/#1179: a fresh session does not inherit the last drive's knock gates
   BUMP.gate.clear(); BUMP.seen.clear(); BUMP.local.clear(); BUMP.inbox.length = 0; BUMP.out.length = 0;   // #836: a fresh session does not inherit the last drive's cooldowns or hits
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; document.body.classList.remove('mpdone'); $('pauserestart').hidden = false;
@@ -7463,15 +7577,19 @@ const NETHEARD = { horn: 0, knock: 0, last: null };
 const netGainTo = (id) => { const e = NETCARS.get(id); return e && e.mesh ? hearGain(Math.hypot(e.mesh.position.x - P.x, e.mesh.position.z - P.z)) : 0; };
 function netHearHorn(entry, id) { const g = netGainTo(id); if (g < 0.02) return; SFX.hornAt(VEHICLES[entry.car]?.sound?.horn || VEH.sound.horn, g); NETHEARD.horn++; NETHEARD.last = { kind: 'horn', id, g }; }
 function netHearKnock(id, s, l) { const g = netGainTo(id); if (g < 0.02) return; SFX.knock(s, l * g); NETHEARD.knock++; NETHEARD.last = { kind: s, id, g }; }
-// one reliable message per knocked prop, gated per sound so a pile of bins is not a burst of repeats; the id is
-// stamped by the host, never taken from a guest's message
 let knockSentAt = {};
-function netSendKnock(s, l) {
+let knockSeen = {};   // #1179: the host's per-slot knock gate (#1191: keyed per sound, or per prop)
+function netSendKnock(s, l, prop) {
   if (!NET.session || !NET.link) return;
-  const now = performance.now(); if (now - (knockSentAt[s] ?? -1e9) < 60) return; knockSentAt[s] = now;
-  if (NET.role === 'H') { for (const peerId of NET.slots.keys()) NET.link.send(peerId, { type: 'knock', s, l, id: NET.you }); }
-  else NET.link.send(HOST_ID, { type: 'knock', s, l });
+  const now = performance.now();
+  if (!prop) { if (now - (knockSentAt[s] ?? -1e9) < 60) return; knockSentAt[s] = now; }   // #1191: a prop falls once until restored: never gated
+  if (NET.role === 'H') { for (const peerId of NET.slots.keys()) NET.link.send(peerId, knockMsg(s, l, prop, NET.you)); }
+  else NET.link.send(HOST_ID, knockMsg(s, l, prop));
 }
+// #1191: wire form; prop = { k, i, a } or a parsed knock, id = stamped slot (undefined from a guest)
+const knockMsg = (s, l, prop, id) => (prop && prop.k !== undefined ? { type: 'knock', s, l, k: prop.k, i: prop.i, a: prop.a, id } : { type: 'knock', s, l, id });
+// #1191: the other player's prop falls here too, at any distance
+function netFallKnock(msg) { if (msg.k !== undefined && KNOCK) KNOCK.knockRemote(msg.k, msg.i, msg.a, msg.l); }
 // from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
 function stepNetCars() {
   if (!NET.session) return;
@@ -7836,7 +7954,7 @@ const inRun = () => canPause($('overlay').hidden, R.state);
 const holdSound = (on) => SFX.hold('menu', on);   // #14: one of several hold reasons -- a hidden tab holds 'tab' and must not release this one
 const PAUSE_ALL = [...new Set([...PAUSE_BUTTONS, ...pauseButtonsFor('tutorial'), 'pauselobby'])];
 const netHostDriving = () => NET.role === 'H' && NET.session;   // #1110: only the host, only while the shared drive runs
-const pauseIds = () => { const ids = pauseButtonsFor(R.mode).filter((id) => id !== 'pausetimetable' || POSTAUTO.ready); return netHostDriving() ? withLobbyButton(ids) : ids; };   // #801: no Timetable button in a region without a timetable   // #534: every button any mode shows
+const pauseIds = () => { const ids = withoutRestartInNetRace(pauseButtonsFor(R.mode).filter((id) => id !== 'pausetimetable' || POSTAUTO.ready), NET.race); return netHostDriving() ? withLobbyButton(ids) : ids; };   // #801: no Timetable button in a region without a timetable   // #534: every button any mode shows
 function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; setRadioPanel(false); if (document.pointerLockElement) document.exitPointerLock(); for (const k in keys) keys[k] = false; closeHelp(); closeJump(); $('pause').hidden = false; holdSound(true); for (const id of PAUSE_ALL) $(id).hidden = !pauseIds().includes(id); $(PAUSE_BUTTONS[0]).focus(); }
 function closePause() { if (!PAUSE.on) return; if (CARSEL.swap) restoreVehicleSwap(); /* every exit from the pause undoes an open vehicle change (#189) */ PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); if (R.mode === 'delivery') { startDelivery(); return; } startRace(R.mode); }   // #107

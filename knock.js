@@ -202,6 +202,10 @@ export function stepPoo(c, dt, gy) {
 // ---------- sounds: a recipe is a list of events; knock.js's player turns it into Web Audio nodes ----------
 // event: { t, dur, gain, noise: { type, freq, q } | tone: { f0, f1, wave } }
 export function soundLevel(speed) { return clamp(0.3 + speed / 22, 0.3, 1); }
+// #1191: a knock from another device: its action, and the car from direction + sound level
+export const fallAction = (kind) => (kind === 'lamp' ? 'bend' : 'fly');
+export const remoteSpeed = (level) => clamp((level - 0.3) * 22, 3, 15.4);
+export function remoteCar(angle, level) { const s = remoteSpeed(level); return { vx: Math.cos(angle) * s, vz: Math.sin(angle) * s }; }
 const noiseEv = (t, dur, gain, type, freq, q = 1) => ({ t, dur, gain, noise: { type, freq, q } });
 const toneEv = (t, dur, gain, f0, f1 = f0, wave = 'sine') => ({ t, dur, gain, tone: { f0, f1, wave } });
 const bell = (t, f, gain, dur) => [1, 2.76, 5.4, 8.93].map((m, i) => toneEv(t, dur / (1 + i * 0.6), gain / (1 + i * 0.9), f * m, f * m, i % 2 ? 'triangle' : 'sine'));
@@ -290,7 +294,7 @@ export function restoreDue(age, distToCar) { return age >= RESTORE_AFTER && dist
 
 // ---------- the scene side ----------
 // deps: { THREE, parent, terrainH(x, z), groups: { kind: { mesh, list } } (list items {x, z, rot, obb?}), car: () => {x, y, z, vx, vz, r},
-//         play(sound, level), hiss(seconds), onCount(n), knocked?(sound, level) — #1112: one call per prop actually knocked over, rng }
+//         play(sound, level), hiss(seconds), onCount(n), knocked?(sound, level, { k, i, a }) — #1112: one call per prop actually knocked over (#1191: which prop, which direction), rng }
 export function createKnock(deps) {
   const { THREE, parent, terrainH, groups, car, play, hiss, onCount, knocked } = deps, rng = deps.rng || Math.random;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), zero = new THREE.Vector3(0, 0, 0), axis = new THREE.Vector3(), upV = new THREE.Vector3(0, 1, 0), piv = [0, 0, 0];
@@ -298,6 +302,7 @@ export function createKnock(deps) {
   const all = [];   // every knockable prop: { kind, i, p, grid index }
   for (const kind of KNOCKABLE) { const g = groups[kind]; if (g) g.list.forEach((p, i) => all.push({ kind, i, p, g, hit: null, off: 0 })); }
   const grid = propGrid(all.map(a => a.p)), nearBuf = [], active = [];   // active: the knocked props (flying, lying, bending)
+  const byKind = {}; for (const a of all) (byKind[a.kind] ||= [])[a.i] = a;   // #1191: kind -> its props by list index, what a remote knock names
   const hiddenM = new THREE.Matrix4().compose(zero, q.identity(), zero);
   const setM = (a, mat) => { a.g.mesh.setMatrixAt(a.i, mat); a.g.mesh.instanceMatrix.addUpdateRange(a.i * 16, 16); a.g.mesh.instanceMatrix.needsUpdate = true; };
   const standM = (a) => { q.setFromAxisAngle(upV, -a.p.rot); pos.set(a.p.x, terrainH(a.p.x, a.p.z), a.p.z); return m4.compose(pos, q, one); };
@@ -350,26 +355,30 @@ export function createKnock(deps) {
 
   function startFountain(x, y, z) {
     const s = fountainSeconds(rng); fountains.push({ x, y, z, left: s, acc: 0 }); if (fountains.length > 3) fountains.shift();
-    hiss(s); dropMesh.visible = true; dropsLive = true;
+    dropMesh.visible = true; dropsLive = true;
   }
 
-  function knock(a, action, speed) {
-    const k = KINDS[a.kind], gy = terrainH(a.p.x, a.p.z), c = car(), vel = Math.hypot(c.vx, c.vz);
-    a.age = 0; state.count++; state.started++;
-    if (action === 'bend') {
-      const n = vel || 1; a.hit = { bend: true, dx: c.vx / n, dz: c.vz / n, t: 0, done: false };
-      if (a.p.obb) a.p.obb.off = true;
-      const lvl = soundLevel(speed); play('lamp', lvl); knocked?.('lamp', lvl);   // #1112: a bend is a knock heard by the others too
-    } else {
+  // #1191: the prop goes over; no sound, no count (local and remote)
+  function topple(a, action, c) {
+    const k = KINDS[a.kind], gy = terrainH(a.p.x, a.p.z);
+    a.age = 0; if (a.p.obb) a.p.obb.off = true;
+    if (action === 'bend') { const n = Math.hypot(c.vx, c.vz) || 1; a.hit = { bend: true, dx: c.vx / n, dz: c.vz / n, t: 0, done: false }; }
+    else {
       a.hit = launch(a.kind, a.p.x, gy, a.p.z, -a.p.rot, c, rng); a.hit.long = k.long;
-      if (a.p.obb) a.p.obb.off = true;
-      const lvl = soundLevel(speed); play(k.sound, lvl); knocked?.(k.sound, lvl);   // #1112: only the primary sound travels, never the scrape/clink of the tumbling
       if (a.kind === 'hydrant') startFountain(a.p.x, gy + 0.5, a.p.z);
       if (a.kind === 'clothes_container') throwClothes(a.p.x, gy + k.h * 0.7, a.p.z, a);
       if (a.kind === 'robidog') throwPoos(a.p.x, gy + 1.0, a.p.z, a);   // #469
     }
-    active.push(a); onCount(state.count);
-    return k.slow;
+    active.push(a);
+  }
+  function knock(a, action, speed) {
+    const c = car(), sound = action === 'bend' ? 'lamp' : KINDS[a.kind].sound, lvl = soundLevel(speed);
+    a.remote = false; topple(a, action, c);
+    state.count++; state.started++;
+    play(sound, lvl); if (a.kind === 'hydrant') hiss(fountains[fountains.length - 1].left);
+    knocked?.(sound, lvl, { k: a.kind, i: a.i, a: Math.atan2(c.vz, c.vx) });
+    onCount(state.count);
+    return KINDS[a.kind].slow;
   }
 
   function writeBody(a) {
@@ -381,7 +390,7 @@ export function createKnock(deps) {
   }
 
   function restore(a) {
-    a.hit = null; setM(a, standM(a)); if (a.p.obb) a.p.obb.off = false;
+    a.hit = null; a.remote = false; setM(a, standM(a)); if (a.p.obb) a.p.obb.off = false;
     for (const c of cloths) if (c.owner === a) hideCloth(c);
     for (const c of poos) if (c.owner === a) hidePoo(c);
   }
@@ -413,7 +422,7 @@ export function createKnock(deps) {
         const a = active[n], b = a.hit; if (!b) { active.splice(n, 1); continue; }
         a.age += dt;
         if (b.bend) { if (!b.done) { b.t += dt; writeBend(a); if (b.t > 1.1) b.done = true; } }
-        else if (!b.rest) { if (stepBody(b, dt, terrainH(b.x, b.z))) play(KINDS[a.kind].sound === 'glass' ? 'clink' : KINDS[a.kind].sound === 'clothes' ? 'clothes' : 'wood', soundLevel(Math.min(10, -b.vy)) * 0.5); writeBody(a); }
+        else if (!b.rest) { if (stepBody(b, dt, terrainH(b.x, b.z)) && !a.remote) play(KINDS[a.kind].sound === 'glass' ? 'clink' : KINDS[a.kind].sound === 'clothes' ? 'clothes' : 'wood', soundLevel(Math.min(10, -b.vy)) * 0.5); writeBody(a); }
         if (restoreDue(a.age, Math.hypot(a.p.x - cx, a.p.z - cz))) { restore(a); active.splice(n, 1); }
       }
       this.fountainsAndCloth(dt);
@@ -437,9 +446,17 @@ export function createKnock(deps) {
       dropMesh.visible = false; dropsLive = false;
     },
     resetCount() { state.count = 0; onCount(0); },
-    debug() { return { count: state.count, started: state.started, loose: active.length, resting: active.filter(a => a.hit && (a.hit.rest || a.hit.done)).length, bent: active.filter(a => a.hit && a.hit.bend).length, fountains: fountains.length, drops: drops.filter(d => d.on).length, cloths: cloths.filter(c => c.on).length, poos: poos.filter(c => c.on).length, poosResting: poos.filter(c => c.on && c.rest).length, kinds: active.map(a => a.kind) }; },
+    debug() { return { count: state.count, started: state.started, loose: active.length, resting: active.filter(a => a.hit && (a.hit.rest || a.hit.done)).length, bent: active.filter(a => a.hit && a.hit.bend).length, remote: active.filter(a => a.remote).length, fountains: fountains.length, drops: drops.filter(d => d.on).length, cloths: cloths.filter(c => c.on).length, poos: poos.filter(c => c.on).length, poosResting: poos.filter(c => c.on && c.rest).length, kinds: active.map(a => a.kind) }; },
     // for tests: the knocked prop's index in its group list, or -1
     knocked(kind) { return active.filter(a => a.kind === kind).map(a => a.i); },
     all() { return all; },
+    // #1191: another player knocked it: falls here too, silent, uncounted; false if unknown or already down
+    knockRemote(kind, i, angle, level) {
+      const a = byKind[kind]?.[i]; if (!a || a.hit) return false;
+      a.remote = true; topple(a, fallAction(kind), remoteCar(angle, level));
+      return true;
+    },
+    // test hook: the local knock path at 8 m/s
+    hit(kind, i) { const a = byKind[kind]?.[i]; if (!a || a.hit) return false; knock(a, fallAction(kind), 8); return true; },
   };
 }

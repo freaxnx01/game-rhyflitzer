@@ -62,6 +62,12 @@ def test_readme_documents_the_network_caps_and_the_lock():
     assert "requirements.lock" in text and "uv pip compile" in text and "oom_score_adj" in text
 
 
+def test_the_image_carries_the_swisstlm3d_structures_extract():
+    """#1151: every world the service builds reads the committed CH-wide extract, so COPY pipeline/ must reach it."""
+    assert "!pipeline/tlm_structures.json.gz" in (SERVICE / "Dockerfile.dockerignore").read_text().splitlines()
+    assert (SERVICE.parent / "pipeline" / "tlm_structures.json.gz").exists()
+
+
 def test_the_image_carries_the_gallery_cli_and_the_readme_holds_no_token():
     assert "COPY scripts/gallery.py scripts/gallery.py" in (SERVICE / "Dockerfile").read_text()
     assert "!scripts/gallery.py" in (SERVICE / "Dockerfile.dockerignore").read_text().splitlines()

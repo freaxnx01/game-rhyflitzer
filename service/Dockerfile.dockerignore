@@ -1,6 +1,7 @@
 **
 !pipeline/*.py
 !pipeline/*.geojson
+!pipeline/tlm_structures.json.gz
 !pipeline/*.mjs
 !pipeline/requirements.txt
 !service/requirements.lock

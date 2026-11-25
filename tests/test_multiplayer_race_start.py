@@ -35,5 +35,8 @@ def test_race_start_holds_then_releases_both(pair):
         a = page.evaluate("() => window.__mm.carPose().pos")
         page.evaluate("() => window.__mm.driveSim(2, ['ArrowUp'])")
         assert dist(page.evaluate("() => window.__mm.carPose().pos"), a) > 5
-    assert host.is_hidden("#pauserestart")
+    for page in (host, guest):
+        page.click("#pausebtn")
+        assert page.is_hidden("#pauserestart")
+        page.click("#pauseresume")
     assert errors == []

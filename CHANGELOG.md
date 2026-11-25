@@ -10,12 +10,16 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-25 09:46` **Bahnbrücken** und **Unterführungen** haben jetzt ihre echte Höhe aus **swissTLM3D**: Die Brücken liegen höher, die Strasse darunter taucht nicht mehr künstlich ab, zum Beispiel in **Stein** und am **Königsweg**.
+- `2026-11-24 16:20` Im **Mehrspieler-Rennen** bietet das **Pausenmenü** kein «Rennen neu starten» mehr an: Ein Neustart würde den gemeinsamen Start verlassen.
 - `2026-11-24 14:41` Auf dem Handy sitzen die **Steuerelemente** jetzt in den Ecken unten, die **Geschwindigkeit** steht als Zahl zwischen Deinen Daumen statt als Tacho, und die **Karte** ist klein oben rechts; so bleibt die Mitte frei für die Strasse.
 - `2026-11-24 14:11` Die **Handy-Steuerung** ist kleiner und **durchsichtig** und blendet aus, wenn Du sie 4 Sekunden nicht anfasst; **Aussteigen**, **Springen** und **Kamera** findest Du jetzt im Menü ☰.
 - `2026-11-23 16:35` Ein angeklickter **Einladungslink** tritt jetzt im schon offenen **Tab** bei; der neue Tab sagt nur «Im anderen Tab beigetreten».
 
 ### Added
 
+- `2026-11-25 15:54` Im **Mehrspieler** fällt ein Objekt, das ein anderer Spieler **umfährt**, jetzt auch bei Dir um und steht später wieder auf.
+- `2026-11-24 19:07` Grundlage für echte **Brückenhöhen**: Das Spiel bringt jetzt die Brücken und Unterführungen der ganzen Schweiz aus **swissTLM3D** © swisstopo mit, samt der gemessenen Höhe dessen, was darunter durchführt. Zu sehen ist davon noch nichts — die Bahn- und Strassenbrücken werden erst in einem nächsten Schritt darauf gesetzt.
 - `2026-11-23 21:12` Du hörst jetzt die **Hupe** des anderen Spielers und die Objekte, die er **umfährt**, wenn er in der Nähe ist — leiser, je weiter er weg ist.
 - `2026-11-23 14:54` Im **Mehrspieler** wechselt der Gastgeber den **Spielmodus**, ohne dass jemand neu verbinden muss: Pause → **Modus wechseln (Lobby)** bringt alle in die Lobby, dort startet er **Gemeinsam losfahren** oder **Rennen starten**.
 - `2026-11-23 14:19` Im **Mehrspieler-Rennen** listet das HUD unter der eigenen Position jeden **Gegner** auf: wie viele **Checkpoints** er schon passiert hat und wie viele Meter bis zum nächsten — auch wenn er ausser Sicht fährt.
@@ -74,6 +78,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-25 19:18` **Bahnbrücken** schweben nicht mehr über der Strasse: Sie stehen auf ihrem **Bahndamm** mit **Widerlagern** links und rechts der Durchfahrt, und ihre Enden sacken nicht mehr ab, zum Beispiel in **Stein** und an der **Kapfstrasse**.
+- `2026-11-25 14:44` Multiplayer race: when the host **refuses your checkpoint**, it no longer re-triggers with the pass sound over and over while you stand in it; drive out and back in to try again.
+- `2026-11-24 16:28` Im **Mehrspieler-Rennen** meldet ein Gast, dessen **Zieleinlauf** der Gastgeber abgelehnt hat, nicht mehr dauernd neu: Erst nach dem Hinausfahren aus dem Ziel zählt die nächste Einfahrt.
+- `2026-11-23 15:34` **Strassen** wellen nicht mehr: jede Strasse hat jetzt ein eigenes, **glattes Höhenprofil** aus dem 2-m-Gelände von swisstopo, und das Gelände am Strassenrand ist daran angepasst. Am deutlichsten auf der **A3**.
 - `2026-11-23 09:13` Im **Mehrspieler** steht das Auto des anderen Spielers nicht mehr **quer**: Nach mehr als einer halben Drehung kam seine Fahrtrichtung bisher falsch an, auch beim Zusammenstossen.
 - `2026-11-21 00:47` Gemeinsam fahren: Im **Hübel** (Lift, Tunnelring, Räume) bleibt das Auto des anderen Spielers jetzt **sichtbar**, statt bis zur Rückkehr an die Oberfläche verschwunden zu sein. Ruckelt das Spiel eines Spielers kurz (etwa beim ersten Mal im Lift), taucht das andere Auto gleich danach wieder auf, statt noch Sekunden **eingefroren** zu bleiben.
 - `2026-11-21 00:19` In einem **Mehrspieler-Rennen** verschwinden die **Checkpoints** und der **Pfeil**, sobald Du im Ziel bist.

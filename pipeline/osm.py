@@ -28,7 +28,9 @@ import building_heights
 import geo
 import mmh
 import terrain
+import tlm_structures
 import osm_read
+import road_profiles
 import world_boundaries
 import world_buildings
 import world_bus
@@ -39,6 +41,7 @@ import world_parking
 import world_props
 import world_rail
 import world_roads
+import world_tlm
 import world_water
 
 
@@ -92,11 +95,13 @@ def cmd_cut(a) -> int:
 
 def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None, *,
                 clip_box=None, data=None, boundary_items=None, near_classes=world_buildings.MAIN,
-                fields_geojson=None) -> dict:
+                fields_geojson=None, profile_cache=None, dgm_dir=None) -> dict:
     """clip_box (game x0, z0, x1, z1) overrides the clip from the lon/lat bbox; data reuses an osm_read result and
     boundary_items a world_boundaries.read result; anchors_path None means no hand anchors (#166: generated worlds);
     near_classes selects which street types are used to keep nearby buildings (MAIN for hand-made regions, NEAR_GENERATED for generated worlds);
-    fields_geojson: the cantonal parcels from `fields_ch.py fetch` (EPSG:2056 GeoJSON path); None -> OSM fields only."""
+    fields_geojson: the cantonal parcels from `fields_ch.py fetch` (EPSG:2056 GeoJSON path); None -> OSM fields only;
+    profile_cache: #1152 smooth road height profiles from the swissALTI3D 2 m tiles in CACHE/swissalti3d (needs mmh_path),
+    dgm_dir: the LGL DGM1 folder, used for those profiles only if the .mmh lists DGM1."""
     frame = geo.Frame(*origin)
     if clip_box is None:
         xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
@@ -158,7 +163,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         f"rail {len(rail)}, rail bridges {len(rail_bridges)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
         f"forests {len(forests)} {forest_stats}, "
         f"boundaries {len(boundaries)}")
-    return {
+    world = {
         "format": "MMW1",
         "origin": {"lat": origin[0], "lon": origin[1], "E": frame.e0, "N": frame.n0, "crs": "EPSG:2056"},
         "bbox": list(bbox),
@@ -185,6 +190,15 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "anchors": resolved,
         **({"busRoutes": bus_routes} if bus_lines else {}),
     }
+    if profile_cache:   # #1152: smooth road height profiles from the 2 m terrain (needs the .mmh: base and fallback)
+        if hdr is None:
+            raise ValueError("road profiles need the terrain (.mmh)")
+        n = road_profiles.apply_world(world, road_profiles.sampler_for(world, hdr, heights, profile_cache, dgm_dir), hdr["base"])
+        log(f"road profiles {n}")
+    tlm = tlm_structures.load() if hdr is not None else None
+    if tlm is not None:   # #1151: deck and underpass heights from swissTLM3D; no extract or outside CH = no keys
+        log(f"swissTLM3D bridge heights {world_tlm.apply(world, tlm, hdr['base'])}")
+    return world
 
 
 def write_world(path: Path, world: dict) -> None:
@@ -196,7 +210,7 @@ def write_world(path: Path, world: dict) -> None:
 
 def cmd_build(a) -> int:
     world = build_world(a.pbf, a.mmh, tuple(a.bbox), tuple(a.origin), a.house_dist, a.big_building_area, a.anchors,
-                        a.dsm_heights, fields_geojson=a.fields)
+                        a.dsm_heights, fields_geojson=a.fields, profile_cache=a.profiles, dgm_dir=a.dgm_dir)
     write_world(a.out, world)
     return 0
 
@@ -238,6 +252,9 @@ def main(argv=None) -> int:
                    help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
     b.add_argument("--fields", default=None, metavar="GEOJSON",
                    help="#506: cantonal Nutzungsfl\u00e4chen from fields_ch.py fetch; without it fields come from OSM landuse only")
+    b.add_argument("--profiles", default=None, metavar="CACHE",
+                   help="#1152: smooth road height profiles from swissALTI3D 2 m tiles in CACHE/swissalti3d (needs --mmh)")
+    b.add_argument("--dgm-dir", default=None, help="LGL DGM1 folder, used for profiles only if the .mmh lists DGM1")
     w = sub.add_parser("world", help="#166: any Swiss rectangle -> world.json + terrain.mmh + meta.json")
     where = w.add_mutually_exclusive_group(required=True)
     where.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), help="lon/lat box, snapped to 250 m LV95")

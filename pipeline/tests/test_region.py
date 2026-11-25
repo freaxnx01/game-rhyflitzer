@@ -34,6 +34,7 @@ def build_synth(tmp_path_factory, name, with_race: bool):
     tmp = tmp_path_factory.mktemp(name)
     mp = pytest.MonkeyPatch()
     mp.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    mp.setattr(region.terrain, "swiss_tiles", lambda *a, **k: [])      # #1152: no tile download in the test
     if not with_race:
         no_race(mp)
     steps = []
@@ -64,6 +65,16 @@ def test_files_steps_and_terrain_base(built):
     assert not [p for p in files["world"].parent.iterdir() if p.is_dir()]  # temp dir gone
     hdr, heights = mmh.read_mmh(files["terrain"])
     assert hdr["base"] == 412.0 and float(heights.min()) == pytest.approx(0.6, abs=1e-4)
+
+
+def test_drivable_roads_get_a_profile(built):
+    _, world, _, _ = built
+    import road_profiles
+    roads = [r for r in world["roads"] if road_profiles.eligible(r)]
+    assert roads and all("zp" in r for r in roads)
+    assert all(0.0 <= v <= 18.1 for r in roads for v in r["zp"])   # flat 412.6 over base 412, the 430 corner at most
+    assert all("zp" not in r for r in world["roads"] if not road_profiles.eligible(r))
+    assert road_profiles.SOURCE in world["sources"]
 
 
 def test_name_villages_jlist_start(built):
@@ -173,6 +184,7 @@ def test_terrain_reaching_outside_switzerland_keeps_the_base(tmp_path, monkeypat
 
 def test_one_boundary_read_and_both_tile_caches_pruned(tmp_path, monkeypatch):
     monkeypatch.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    monkeypatch.setattr(region.terrain, "swiss_tiles", lambda *a, **k: [])    # #1152: no tile download in the test
     reads, real_read = [], region.world_boundaries.read
     monkeypatch.setattr(region.world_boundaries, "read", lambda *a: reads.append(a) or real_read(*a))
     no_race(monkeypatch)

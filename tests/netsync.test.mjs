@@ -1,7 +1,7 @@
 // #835 part a: clock offset, pose track and start column of netsync.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addClockSample, clockOffset, createTrack, pushPose, sampleRemote, gridPose, fadeAlpha, FADE, tagScale, remoteLamps, FLAG, DELAY, EXTRAP, HIDE, RTT_MAX, HEAR_NEAR, HEAR_FAR, hearGain } from '../netsync.js';
+import { addClockSample, clockOffset, createTrack, pushPose, sampleRemote, gridPose, fadeAlpha, FADE, tagScale, remoteLamps, FLAG, DELAY, EXTRAP, HIDE, RTT_MAX, HEAR_NEAR, HEAR_FAR, hearGain, KNOCK_GAP_MS, knockAllowed } from '../netsync.js';
 const pose = (t, x, extra = {}) => ({ id: 1, seq: t, t, x, y: 0, z: 0, rx: 0, ry: 0, rz: 0, vx: 20, vz: 0, steer: 0, flags: 1, ...extra });
 
 test('clockOffset_fiveSamples_median', () => {
@@ -102,4 +102,28 @@ test('remoteLamps_flags_headBrakeBlinkPhase', () => {
   assert.deepEqual(remoteLamps(f, true), { head: true, brake: true, left: true, right: false });
   assert.deepEqual(remoteLamps(f, false), { head: true, brake: true, left: false, right: false });   // blink off-phase
   assert.deepEqual(remoteLamps(FLAG.visible, true), { head: false, brake: false, left: false, right: false });
+});
+
+test('knockAllowed_firstKnock_allowedAndRecorded', () => {
+  const seen = {};
+  assert.equal(KNOCK_GAP_MS, 60);
+  assert.equal(knockAllowed(seen, 1, 'bin', 1000), true);
+});
+
+test('knockAllowed_withinGap_dropped_notRecorded', () => {
+  const seen = {};
+  knockAllowed(seen, 1, 'bin', 1000);
+  assert.equal(knockAllowed(seen, 1, 'bin', 1059), false);
+  assert.equal(knockAllowed(seen, 1, 'bin', 1060), true);   // measured from the last accepted one, not the dropped one
+});
+
+test('knockAllowed_otherSoundOrSlot_gatedIndependently', () => {
+  const seen = {};
+  knockAllowed(seen, 1, 'bin', 1000);
+  assert.equal(knockAllowed(seen, 1, 'lamp', 1001), true);
+  assert.equal(knockAllowed(seen, 2, 'bin', 1001), true);
+});
+
+test('knockAllowed_nonFiniteTime_dropped', () => {
+  assert.equal(knockAllowed({}, 1, 'bin', NaN), false);
 });

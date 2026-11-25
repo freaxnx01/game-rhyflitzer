@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KNOCKABLE, knockAction, touches, touchesAny, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER, KNOCK_SOUNDS } from '../knock.js';
+import { KINDS, KNOCKABLE, knockAction, touches, touchesAny, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, fallAction, remoteSpeed, remoteCar, restoreDue, RESTORE_AFTER, KNOCK_SOUNDS } from '../knock.js';
 
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 
@@ -175,4 +175,18 @@ test('restoreDue: only after the minute and out of view', () => {
   assert.equal(restoreDue(RESTORE_AFTER - 1, 500), false);
   assert.equal(restoreDue(RESTORE_AFTER, 20), false);
   assert.equal(restoreDue(RESTORE_AFTER, 500), true);
+});
+
+test('fallAction (#1191): a lamp bends, everything else flies', () => {
+  assert.equal(fallAction('lamp'), 'bend');
+  for (const k of KNOCKABLE.filter((k) => k !== 'lamp')) assert.equal(fallAction(k), 'fly');
+});
+test('remoteSpeed (#1191): inverts soundLevel inside its range, clamped outside', () => {
+  assert.ok(Math.abs(remoteSpeed(soundLevel(10)) - 10) < 1e-9);
+  assert.equal(remoteSpeed(0.3), 3);
+  assert.ok(Math.abs(remoteSpeed(1) - 15.4) < 1e-9);
+});
+test('remoteCar (#1191): drives along the angle at remoteSpeed', () => {
+  const n = remoteCar(Math.PI / 2, soundLevel(10));
+  assert.ok(Math.abs(n.vx) < 1e-9 && Math.abs(n.vz - 10) < 1e-9);
 });

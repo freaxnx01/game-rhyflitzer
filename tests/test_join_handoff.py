@@ -36,7 +36,7 @@ def make_code(browser, server):
     The page closes once the code is out: the handoff below must not fight a third heavy page for the CPU."""
     host, _ = open_page(browser, server)
     host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn")
-    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2H.')", timeout=T)
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R3H.')", timeout=T)
     code = host.input_value("#mpcode")
     host.close()
     return code
@@ -84,7 +84,7 @@ def test_openTabAlreadyInSession_newTabJoinsItself(tabs, server):
     browser, ctx = tabs
     a, a_errors = open_tab(ctx, f"{server}/index.html?netice=none")
     a.click("#mpbtn"); a.fill("#mpname", "Anna"); a.click("#mphostbtn")
-    a.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2H.')", timeout=T, polling=500)
+    a.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R3H.')", timeout=T, polling=500)
     code = a.input_value("#mpcode")
     assert net(a)["role"] == "H"
 

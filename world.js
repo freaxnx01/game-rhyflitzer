@@ -131,19 +131,23 @@ function splitKept(r) {
   if (!keep1952) return [r];
   const total = polylineLength(r.pts), pieces = [];
   let from = 0;
-  const add = (a, b, modern) => { if (b - a >= MIN_PIECE) pieces.push(modern ? { ...rest, pts: polylineSlice(r.pts, a, b), modern: true } : { ...rest, pts: polylineSlice(r.pts, a, b) }); };
+  // #1152: a piece keeps the whole road's profile and reads it from its own start on (zpFrom)
+  const prof = (a) => (r.zp ? { zpFrom: a, zpLen: total } : {});
+  const add = (a, b, modern) => { if (b - a >= MIN_PIECE) pieces.push(modern ? { ...rest, pts: polylineSlice(r.pts, a, b), ...prof(a), modern: true } : { ...rest, pts: polylineSlice(r.pts, a, b), ...prof(a) }); };
   for (const [a, b] of keep1952) { add(from, a, true); add(a, b, false); from = b; }
   add(from, total, true);
   return pieces;
 }
 
 export function layoutFromWorld(w) {
-  const roads = w.roads.flatMap(splitKept).map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
+  const roads = w.roads.flatMap(splitKept).map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road',
+                                                        ...(r.zp && r.zpLen === undefined ? { zpFrom: 0, zpLen: polylineLength(r.pts) } : {}) }));   // #1152
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
            rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], eraFields: w.era?.fields || [], eraHouses: w.era?.houses || [], busRoutes: w.busRoutes || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
-export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
+// #1196: a bridge carrying a measured height profile (b.prof, swissTLM3D) reads its surface from it; the deck line sits DECK_OFFSET below
+export function bridgeDeckAt(b, t) { if (b.prof) return profileY(b.prof, t) - DECK_OFFSET; const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
 // Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends; an end
 // flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
 // #227: an end seated on its bank (seat0/seat1) carries its deck line DECK_OFFSET below the bank top, so the surface meets the bank
@@ -151,7 +155,7 @@ export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.le
 // ramp meets the level bank threw the car off the Sägeweg bridge.
 export const DECK_OFFSET = 0.3;
 export function bridgeDeckOffset(b, t) { const a = b.fade0 === false || b.seat0 ? Infinity : t, e = b.fade1 === false || b.seat1 ? Infinity : b.len - t; return DECK_OFFSET * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
-export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
+export function bridgeSurfaceAt(b, t) { return b.prof ? profileY(b.prof, t) : bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
 
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
 // the cut ramps out along the road at `grade`, never deeper than `maxDepth`. #119: `wall` m thick stone walls retain the
@@ -250,6 +254,51 @@ export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidt
 
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
 // u.grade until it meets the ground. The road ribbon lies u.lift above the floor.
+// #1196: heights measured by swissTLM3D. A deck profile [t, y] is pinned to the bank heights at both ends and keeps the measured samples
+// from `B` m inward, mixing linearly toward the pin in between; gaps between samples interpolate linearly (profileY).
+export const TLM_RAIL_TOP = 0.3, TLM_CLEAR_MIN = 3.0, TLM_FINE = { inner: 16, outer: 28, r: 4 }, TLM_UNDER_REACH = 8;
+// #1202: the bare-earth DTM drops under a bridge, so a TLM rail deck gets its embankment back: along its span EMBANK.lip under the
+// surface (the deck covers it; the road through is a cut, retained by its walls), eased in over the first and last metre so the 1 m
+// patches smear no step; EMBANK.run m past each end at the end's surface, the rail running on; beyond that falling EMBANK.fall per
+// metre, sideways past the deck's half-width too
+export const EMBANK = { run: 6, fall: 0.67, lip: 0.3 };
+export function embankAt(deck, x, z) {
+  const p = deck.pts, n = nearestOnPolyline(p, x, z), inside = n.t > 1e-9 && n.t < deck.len - 1e-9;
+  let lat = n.d, past = 0;
+  if (!inside) { const k = n.t > 1e-9, e = k ? p[p.length - 1] : p[0], q = k ? p[p.length - 2] : p[1], l = Math.hypot(e[0] - q[0], e[1] - q[1]) || 1;
+    const ox = (e[0] - q[0]) / l, oz = (e[1] - q[1]) / l, vx = x - e[0], vz = z - e[1];
+    past = Math.max(0, vx * ox + vz * oz); lat = Math.abs(vx * oz - vz * ox); }
+  return bridgeSurfaceAt(deck, n.t) - (inside ? EMBANK.lip * Math.min(1, n.t, deck.len - n.t) : 0) - Math.max(0, lat - deck.hw) * EMBANK.fall - Math.max(0, past - EMBANK.run) * EMBANK.fall;
+}
+export function tlmProfile(samples, len, y0, y1) {
+  const raw = samples.map(([t, y]) => [t, y]).filter(([t]) => t > 0 && t < len).sort((a, b) => a[0] - b[0]);
+  if (!raw.length) return [[0, y0], [len, y1]];
+  const B = Math.min(8, len / 4), at = (t) => profileY(raw, t);
+  for (const t of [B, len - B]) if (!raw.some((p) => p[0] === t)) raw.push([t, at(t)]);
+  raw.sort((a, b) => a[0] - b[0]);
+  const mixed = raw.map(([t, y]) => {
+    const w = t < B ? 1 - t / B : t > len - B ? 1 - (len - t) / B : 0;
+    return [t, w ? y + ((t < B ? y0 : y1) - y) * w : y];
+  });
+  return [[0, y0], ...mixed, [len, y1]];
+}
+// the y of the nearest road point of `under` [x, z, y, kind] within TLM_UNDER_REACH of (x, z); a rail line below never counts
+export function tlmUnderAt(under, x, z) {
+  let best = null, bd = TLM_UNDER_REACH;
+  for (const [ux, uz, uy, kind] of under) {
+    if (kind !== 'road') continue;
+    const d = Math.hypot(ux - x, uz - z);
+    if (d <= bd) { bd = d; best = uy; }
+  }
+  return best;
+}
+// the cut floor under a deck: the measured road y yU, but at least TLM_CLEAR_MIN under the deck's underside, never deeper than maxDepth
+export function tlmFloorTarget(surface, yU, ground, u = UNDERPASS) { return Math.max(Math.min(yU, surface - u.deck - TLM_CLEAR_MIN) - u.lift, ground - u.maxDepth); }
+// #1196: a road whose highest point over the crossing (the ground over its carriageway: where the ribbon will lie) is already within 0.5 m of
+// the measured road, and clear of the deck by TLM_CLEAR_MIN, needs no cut: a trough that shallow on a side slope only makes steps and
+// spikes beside the road (Ankengasse under its road decks, 0.3 m over TLM). The ground alone is no measure: the ribbon lifts above it.
+export const TLM_NO_CUT = 0.5;
+export function tlmNoCut(roadTop, yU, surface, u = UNDERPASS) { return roadTop - yU <= TLM_NO_CUT - 0.05 && roadTop <= surface - u.deck - TLM_CLEAR_MIN; }
 export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
 // #120: the points the network cannot descend through (dead ends, bridge joins, arms out of budget) keep their ground:
 // f0 >= ground - rise, rise = how far the floor climbs from the crossing to that point along the network
@@ -280,6 +329,30 @@ export function armReach(a, groundAt, len, u = UNDERPASS) {
     const room = Math.max(0, dir < 0 ? a.t : len - a.t);   // #156: an anchor on a piece end can land a hair past it
     for (let s = 0; s <= Math.min(room, max); s++) if (cutFloor(a, s, u) >= groundAt(dir * s) - 1e-9) return { s, why: 'ground' };
     return room <= max ? { s: room, why: 'end' } : { s: max, why: 'budget' };
+  });
+}
+// #1196: the highest ground over the cut's band (the centre line and both edges at hw: the carriageway plus margin and half a wall) at arc length t of pts. A cut ramp that ends where
+// its floor meets the centre line's ground leaves a step across a road lying on a side slope: the ribbon past the cut is lifted over
+// the higher edge, the ribbon in the cut is not.
+export function roadwayGround(ground, pts, t, hw) {
+  const [x, z] = pointAtLength(pts, t), [ax, az] = pointAtLength(pts, Math.max(0, t - 0.5)), [bx, bz] = pointAtLength(pts, t + 0.5), d = Math.hypot(bx - ax, bz - az) || 1;
+  const nx = -(bz - az) / d * hw, nz = (bx - ax) / d * hw;
+  return Math.max(ground(x, z), ground(x + nx, z + nz), ground(x - nx, z - nz));
+}
+// #1196: per side, how far past its reach (where its floor met the centre line) a cut's ramp runs on, until the floor clears the highest
+// ground over the band it lowers (`roadway(s)`, s signed from the anchor): the cut stays on the lowered side of the slope, so the step the
+// ribbon would make at the reach end becomes the ramp's own grade and no face is left at the end. Only a side that stopped on the ground gets one; it ends before a
+// junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m.
+export const TLM_TAIL_MAX = 40;
+export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
+  return [-1, 1].map((dir, k) => {
+    if (a.stop?.[k] !== 'ground') return 0;
+    const room = Math.max(0, dir < 0 ? a.t : len - a.t), r = a.reach[k];
+    let limit = Math.min(TLM_TAIL_MAX, room - r);
+    for (const [jx, jz] of junctions) { const n = nearestOnPolyline(a.pts, jx, jz); if (n.d < a.hw + 2) { const s = dir * (n.t - a.t); if (s > r) limit = Math.min(limit, s - r - a.hw - u.margin); } }
+    let t = 0;
+    while (t < limit && cutFloor(a, r + t, u) < roadway(dir * (r + t)) - 1e-9) t++;
+    return Math.max(0, Math.min(t, limit));
   });
 }
 // #120: the nodes along a cut or arm inside its reach -- junction points on its road and the piece ends it reaches, never its
@@ -327,7 +400,7 @@ function continuedFloor(a, pts, t, floor, u) {
 // #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
 // there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
 // first, each piece once. What cannot take an arm becomes a cap point for capFloor.
-export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
+export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS, tail = false) {
   const arms = [], caps = [], used = new Set([cut.road]), queue = [{ a: cut, rise0: 0 }];
   while (queue.length) {
     const { a, rise0 } = queue.shift();
@@ -346,6 +419,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
         const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
         const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
         arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
+        if (tail) arm.tail = armTail(arm, (s) => roadwayGround(ground, o.pts, t + s, arm.hw + u.margin + u.wall / 2), polylineLength(o.pts), junctions, u);   // #1196: a TLM cut
         // an arm that runs out of budget on a road climbing steeper than its grade ends there, below the ground (capping it
         // instead lifts the floor above the deck's underside and loses the underpass); from there its floor runs out to the
         // ground, losing the depth d left at the end over d / u.runout m, so the road has no step (review of #156)
@@ -366,7 +440,7 @@ export function cutFloorAt(c, x, z, u = UNDERPASS, ground = null) {
   if (n.d > (c.lat ?? c.hw + u.margin + u.wall / 2)) return null;   // #156: lat, if set, keeps the patch bleed behind the wall
   const b = c.roundEnds ? 0 : beyondEnd(c.pts, x, z, n.t);     // roundEnds (the hideout's cuts): the corridor runs on as a level disc
   if (b !== 0 && Math.abs(s) < 1e-9) return null;                 // behind an anchor at the road end: the road it leaves covers that
-  if (past <= 0) return cutFloor(c, s + b, u);
+  if (past <= (c.tail?.[k] ?? 0)) return cutFloor(c, s + b, u);   // #1196: the ramp's tail runs on past the reach
   const o = c.out?.[k];
   if (!o || !ground || past > o.len) return null;
   return ground(...pointAtLength(c.pts, n.t)) - o.d * (1 - past / o.len);
@@ -391,7 +465,7 @@ export function sharedTrough(x, z, roads, u = UNDERPASS) {
   return facing && Math.hypot(a.px - b.px, a.pz - b.pz) - a.hw - b.hw < u.margin + u.wall + u.margin;
 }
 // the part of its road a cut or arm lowers, run-outs included: [t0, t1]
-export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0)]; }
+export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0) - (c.tail?.[0] ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0) + (c.tail?.[1] ?? 0)]; }
 export function cutBounds(c, u = UNDERPASS) {
   const [a, b] = armSpan(c), pad = c.hw + u.margin + u.wall + 1, n = Math.max(1, Math.ceil(b - a));
   let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
@@ -484,17 +558,26 @@ export function patchCells([bx0, bz0, bx1, bz1], G) {
 // stands on, the roads draped there and the ground the car drives on do not depend on where the coarse 16 m mesh rows fall.
 // Full weight up to `inner` from a bank, blended back to the coarse mesh by `outer`, where the patches meet it without a crack.
 export const FINE_BANK = { inner: 48, outer: 72 };
-export function fineWeight(x, z, centres, { inner, outer } = FINE_BANK) {
-  let d = Infinity; for (const [cx, cz] of centres) d = Math.min(d, Math.hypot(x - cx, z - cz));
-  const t = Math.max(0, Math.min(1, (d - inner) / (outer - inner)));
-  return 1 - t * t * (3 - 2 * t);
+// #1196: a centre is [x, z] (radii from `opts`) or { x, z, inner, outer } with its own radii; the heaviest centre wins
+export function fineWeight(x, z, centres, opts = FINE_BANK) {
+  let w = 0;
+  for (const c of centres) {
+    const cx = c.x ?? c[0], cz = c.z ?? c[1], { inner, outer } = c.x === undefined ? opts : c;
+    const t = Math.max(0, Math.min(1, (Math.hypot(x - cx, z - cz) - inner) / (outer - inner)));
+    w = Math.max(w, 1 - t * t * (3 - 2 * t));
+  }
+  return w;
 }
 // the cells with any point closer than `outer` to a bank: every edge they share with an unpatched cell lies at outer or beyond
+// (#1196: a centre may be { x, z, outer } with its own radius)
 export function fineCells(centres, G, outer = FINE_BANK.outer) {
   const out = new Map();
-  for (const [cx, cz] of centres) for (const [i, j] of patchCells([cx - outer, cz - outer, cx + outer, cz + outer], G)) {
-    const x = Math.max(G.x0 + i * G.dx, Math.min(cx, G.x0 + (i + 1) * G.dx)), z = Math.max(G.z0 + j * G.dz, Math.min(cz, G.z0 + (j + 1) * G.dz));
-    if (Math.hypot(x - cx, z - cz) < outer) out.set(i + ',' + j, [i, j]);
+  for (const c of centres) {
+    const cx = c.x ?? c[0], cz = c.z ?? c[1], o = c.outer ?? outer;
+    for (const [i, j] of patchCells([cx - o, cz - o, cx + o, cz + o], G)) {
+      const x = Math.max(G.x0 + i * G.dx, Math.min(cx, G.x0 + (i + 1) * G.dx)), z = Math.max(G.z0 + j * G.dz, Math.min(cz, G.z0 + (j + 1) * G.dz));
+      if (Math.hypot(x - cx, z - cz) < o) out.set(i + ',' + j, [i, j]);
+    }
   }
   return [...out.values()];
 }
@@ -522,6 +605,84 @@ export function cellHeights(i, j, G, n, h) {
 }
 
 export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v); }
+// height inside an n x n patch (row-major (n + 1)^2 heights) at cell fractions u, v, with the ground mesh's own split
+export function patchH(p, n, u, v) {
+  const sx = u * n, sz = v * n, a = Math.min(Math.floor(sx), n - 1), b = Math.min(Math.floor(sz), n - 1), W = n + 1;
+  return triLerp(p[b * W + a], p[(b + 1) * W + a], p[(b + 1) * W + a + 1], p[b * W + a + 1], sx - a, sz - b);
+}
+
+// #1152: a road's smooth height profile (zp, pipeline/road_profiles.py): heights every PROFILE_STEP m along the road, the
+// last at its full length; a 1952 piece reads it from zpFrom on (splitKept), so zpLen is always the whole road's length
+export const PROFILE_STEP = 4;
+export function profileAt(zp, len, t) {
+  const n = zp.length; if (n === 1 || t <= 0) return zp[0]; if (t >= len) return zp[n - 1];
+  const k = Math.min(Math.floor(t / PROFILE_STEP), n - 2), s0 = k * PROFILE_STEP, s1 = k === n - 2 ? len : s0 + PROFILE_STEP;
+  return zp[k] + (zp[k + 1] - zp[k]) * (t - s0) / ((s1 - s0) || 1);
+}
+export function roadProfileH(r, t) { return profileAt(r.zp, r.zpLen, (r.zpFrom || 0) + t); }
+// #1152: the terrain beside a profiled road is fitted to it, #42's grade cut generalised to cut and fill: flat at the
+// profile within hw + margin (margin = one patch sub-cell diagonal + 0.5, so no drawn triangle reaching the carriageway
+// rises over it), then a 1:bank bank back to the mesh, the change capped so it is 0 at `outer`
+export const FIT = { bank: 2, maxBank: 12, eps: 0.01, ramp: 16 };
+export function fitMargin(n, cell = MESH_CELL) { return cell / n * Math.SQRT2 + 0.5; }
+export function fitRoad(r, h0, margin) {
+  const pts = dropRepeats(r.pts), cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const len = cum[cum.length - 1], h = (t) => roadProfileH(r, t); let maxGap = 0;
+  for (let t = 0; t <= len + 2; t += 4) { const s = Math.min(t, len), [x, z] = pointAtLength(pts, s); maxGap = Math.max(maxGap, Math.abs(h(s) - h0(x, z))); }
+  const hw = r.w / 2; return { pts, hw, cum, h, len, outer: hw + margin + Math.min(FIT.bank * (maxGap + 0.5), FIT.maxBank) };
+}
+// one road's change at distance d from its axis, station t. The flat band (d <= hw + margin) is always exactly at the
+// profile -- truncating the cut there leaves the terrain over the carriageway. Beyond it the change banks back at 1:bank
+// where that reaches 0 inside `outer`, else linearly to 0 at `outer` (a steeper face, as a deep cutting's wall is):
+// continuous either way, so no crack against the mesh.
+function fitDelta(f, d, t, m, margin) {
+  // the band is cut `sag` under the profile: the patch lattice is grid-aligned, so a vertex reads the profile up to one
+  // sub-cell diagonal (margin - 0.5) further along the road than the ribbon above it does, and on a grade that much
+  // higher -- without the allowance the drawn ground stands over the road surface at a road's end (#1152 AC 9)
+  const y = f.h(t), reach = margin - 0.5;   // the sub-cell diagonal: how far along the road a lattice vertex can look
+  const sag = Math.max(Math.abs(f.h(Math.min(t + reach, f.len)) - y), Math.abs(y - f.h(Math.max(t - reach, 0))));
+  const need = y - sag - m, over = Math.max(0, d - f.hw - margin), span = f.outer - f.hw - margin;
+  const mag = Math.min(Math.abs(need) - over / FIT.bank, Math.abs(need) * (1 - over / (span || 1)));
+  return Math.sign(need) * Math.max(0, mag);
+}
+// the lowest of the roads reaching this point wins, as a grade cut does (gradedH): where two profiled roads at different
+// heights share a cell, the ground goes to the lower one, so neither road is covered by the terrain beside the other
+export function roadFitAt(cands, x, z, m, margin) {
+  let best = 0, any = false;
+  for (const { f, i } of cands) {
+    const [ax, az] = f.pts[i], [bx, bz] = f.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, d = Math.hypot(x - ax - u * dx, z - az - u * dz);
+    if (d >= f.outer) continue;
+    const delta = fitDelta(f, d, f.cum[i] + u * Math.sqrt(L2), m, margin);
+    if (!any || delta < best) { best = delta; any = true; }
+  }
+  return any ? best : 0;
+}
+// #1152: where the game already patches the terrain at 1 m (cuts, grades, banks, pads, the cave) profile and fit step back:
+// 0 inside those cells and the ring around them, rising to 1 over `ramp` m, so a fitted cell never borders a 1 m one
+// idx (yieldIndex): a per-cell table, 1 where a yield cell lies within the scan's reach; 0 means weight 1, no scan
+export function yieldWeight(cells, G, x, z, ramp = FIT.ramp, idx = null) {
+  if (!cells.size) return 1;
+  const ci = Math.floor((x - G.x0) / G.dx), cj = Math.floor((z - G.z0) / G.dz);
+  if (idx && ci >= 0 && cj >= 0 && ci < G.nx && cj < G.nz && !idx[cj * G.nx + ci]) return 1;
+  const r = 1 + Math.ceil(ramp / G.dx); let best = Infinity;
+  for (let j = cj - r; j <= cj + r; j++) for (let i = ci - r; i <= ci + r; i++) {
+    if (!cells.has(i + ',' + j)) continue;
+    const x0 = G.x0 + i * G.dx, z0 = G.z0 + j * G.dz, ex = Math.max(0, x0 - x, x - x0 - G.dx), ez = Math.max(0, z0 - z, z - z0 - G.dz);
+    best = Math.min(best, Math.hypot(ex, ez));
+  }
+  return Math.max(0, Math.min(1, (best - G.dx) / ramp));
+}
+// the table for yieldWeight: per grid cell, is any yield cell within the scan's reach (r cells each way)? Built once from the
+// cells, so a point on the free ground (nearly all of them) costs one lookup instead of (2r + 1)^2 string keys
+export function yieldIndex(cells, G, ramp = FIT.ramp) {
+  const idx = new Uint8Array(G.nx * G.nz), r = 1 + Math.ceil(ramp / G.dx);
+  for (const key of cells) {
+    const [ci, cj] = key.split(',').map(Number);
+    for (let j = Math.max(0, cj - r); j <= Math.min(G.nz - 1, cj + r); j++) for (let i = Math.max(0, ci - r); i <= Math.min(G.nx - 1, ci + r); i++) idx[j * G.nx + i] = 1;
+  }
+  return idx;
+}
 
 // #42 grades: a stretch of road on its own vertical profile (the Südspange's cutting and underpass). g = { pts, hw,
 // ctl: [[t, cut]] } from the world file; h0(x, z) = the uncut mesh. A grade is one more source for #76's terrain patch:
@@ -1078,11 +1239,12 @@ export function trisHeightAt(tris, x, z) {
 // `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
 // four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
 // The triangle pair and the point handed to hAt are two scratch buffers reused for every sample, so sampling allocates
-// nothing. The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
+// nothing. dist (the strip's arc length at each edge pair) gives hAt the station of a probe, so it needn't search for it.
+// The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
 // quad the drawn triangles lie in that same plane and the lattice finds nothing anywhere, so six points inside the quad go
 // first and the lattice only runs where they show the ground bending over the strip at all (PROBE, 0.1 mm).
 const PROBE = 1e-4;
-export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
+export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1, dist = null) {
   const n = left.length, up = new Float64Array(n), tris = new Float64Array(18), at = [0, 0];
   for (let i = 0; i < n - 1; i++) {
     const axl = left[i][0], azl = left[i][1], axr = right[i][0], azr = right[i][1], dxl = left[i + 1][0], dzl = left[i + 1][1], cxr = right[i + 1][0], czr = right[i + 1][1];
@@ -1096,7 +1258,7 @@ export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
         const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
         at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
         const drawn = trisHeightAt(tris, at[0], at[1]);
-        if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
+        if (drawn !== -Infinity) e = Math.max(e, hAt(at, dist ? dist[i] + (dist[i + 1] - dist[i]) * v : undefined) - drawn);
       }
       return e;
     };
