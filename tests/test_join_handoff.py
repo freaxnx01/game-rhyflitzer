@@ -10,7 +10,7 @@ import pytest
 from playwright.sync_api import sync_playwright
 
 from test_multiplayer_cruise import NO_THROTTLE
-from test_multiplayer_lobby import ARGS, READY, RELAY, T, net, open_page
+from test_multiplayer_lobby import ARGS, READY, RELAY, T, net, open_page, refuse_relay
 
 JOINED_ELSEWHERE = "Joined in your other tab"   # mpJoinedElsewhere -- the pages run with locale="en-US"
 JOIN_RECEIVED = "Invitation received"           # mpJoinReceived
@@ -47,7 +47,7 @@ def tabs_fixture(server):
     with sync_playwright() as p:
         browser = p.chromium.launch(args=ARGS + NO_THROTTLE)
         ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
-        ctx.route_web_socket(RELAY, lambda ws: ws.close())   # #1198: the relay is stubbed away; these tests are about the manual code
+        ctx.route_web_socket(RELAY, refuse_relay)   # #1198: the relay is stubbed away; these tests are about the manual code
         yield browser, ctx
         browser.close()
 
