@@ -28,6 +28,7 @@ import building_heights
 import geo
 import mmh
 import terrain
+import tlm_structures
 import osm_read
 import road_profiles
 import world_boundaries
@@ -40,6 +41,7 @@ import world_parking
 import world_props
 import world_rail
 import world_roads
+import world_tlm
 import world_water
 
 
@@ -193,6 +195,9 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
             raise ValueError("road profiles need the terrain (.mmh)")
         n = road_profiles.apply_world(world, road_profiles.sampler_for(world, hdr, heights, profile_cache, dgm_dir), hdr["base"])
         log(f"road profiles {n}")
+    tlm = tlm_structures.load() if hdr is not None else None
+    if tlm is not None:   # #1151: deck and underpass heights from swissTLM3D; no extract or outside CH = no keys
+        log(f"swissTLM3D bridge heights {world_tlm.apply(world, tlm, hdr['base'])}")
     return world
 
 
