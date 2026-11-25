@@ -280,13 +280,7 @@ export function tlmUnderAt(under, x, z) {
   return best;
 }
 // the cut floor under a deck: the measured road y yU, but at least TLM_CLEAR_MIN under the deck's underside, never deeper than maxDepth
-// A ground within TLM_NO_CUT of the measured road (and not in the way of the clearance) is left alone: the road is within the 0.5 m
-// tolerance already, and a trough that shallow on a side slope only makes steps and spikes beside the road (#1196).
-export const TLM_NO_CUT = 0.5;
-export function tlmFloorTarget(surface, yU, ground, u = UNDERPASS) {
-  const clear = surface - u.deck - TLM_CLEAR_MIN - u.lift, floor = Math.max(Math.min(yU, surface - u.deck - TLM_CLEAR_MIN) - u.lift, ground - u.maxDepth);
-  return ground <= clear && floor < ground && ground - floor <= TLM_NO_CUT + u.lift ? ground : floor;
-}
+export function tlmFloorTarget(surface, yU, ground, u = UNDERPASS) { return Math.max(Math.min(yU, surface - u.deck - TLM_CLEAR_MIN) - u.lift, ground - u.maxDepth); }
 export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
 // #120: the points the network cannot descend through (dead ends, bridge joins, arms out of budget) keep their ground:
 // f0 >= ground - rise, rise = how far the floor climbs from the crossing to that point along the network

@@ -76,8 +76,3 @@ test('armTail_continuesTheRampUntilItClearsTheCarriageway', async () => {
   assert.ok(cut <= 10 - UNDERPASS.margin - a.hw && cut > 0, String(cut));
   assert.equal(armTail(a, () => 9, 100, [])[1], 30);                // capped
 });
-test('tlmFloorTarget_withinTolerance_keepsTheGround', () => {
-  close(tlmFloorTarget(30, 20, 20.45), 20.45);          // 0.45 m above the measured road: within the 0.5 m tolerance, no cut worth a trough
-  close(tlmFloorTarget(30, 20, 20.55), 20 - 0.04);      // 0.55 m: cut
-  close(tlmFloorTarget(24, 20.4, 20.7), 24 - 1.2 - 3.0 - 0.04);   // under the clearance bound (19.76): the cut stays whatever the tolerance
-});
