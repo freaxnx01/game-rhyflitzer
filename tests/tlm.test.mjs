@@ -72,9 +72,10 @@ test('armTail_continuesTheRampUntilItClearsTheCarriageway', async () => {
   assert.equal(t0, 0);                                  // a side that stops on its piece end gets no tail
   assert.ok(cutFloor(a, 10 + t1) >= 1.6 - 1e-9 && cutFloor(a, 10 + t1 - 1) < 1.6, String(t1));   // 10 m of tail
   assert.equal(armTail(a, (s) => cutFloor(a, s), 100, [])[1], 0);   // nothing above the floor: no tail
-  assert.equal(armTail(a, () => 1.6, 100, [[0, 20]])[1], 0);       // a junction 10 m into the tail leaves no room for the 10 m it needs: no tail
+  const [, cut] = armTail(a, () => 1.6, 100, [[0, 20]]);            // a junction 10 m into the tail ends it a half width plus margin before
+  assert.ok(cut <= 10 - UNDERPASS.margin - a.hw && cut > 0, String(cut));
   assert.equal(armTail(a, () => 1.6, 100, [[0, 40]])[1], 10);      // one 30 m in leaves enough
-  assert.equal(armTail(a, () => 9, 100, [])[1], 0);                 // would need more than TLM_TAIL_MAX: none
+  assert.equal(armTail(a, () => 9, 100, [])[1], 40);                // capped
 });
 test('tlmNoCut_roadAlreadyWithinToleranceOfTheMeasuredOne', async () => {
   const { tlmNoCut } = await import('../world.js');

@@ -107,11 +107,13 @@ def test_side_roads_descend_with_the_cut(server):
         a, k = max(longest, key=lambda p: p[0]["reach"][p[1]])
         prof = a["sides"][k]; (x0, z0), (x1, z1) = prof[0][3:5], prof[min(5, len(prof) - 1)][3:5]
         drive = page.evaluate(f"() => window.__mm.sim({x0}, {z0}, {math.atan2(z1 - z0, x1 - x0)}, 6, 4)")
-        return {"arms": arms, "drive": drive, "from": [x0, z0]}
+        return {"arms": arms, "drive": drive, "from": [x0, z0], "xs": page.evaluate("() => window.__mm.crossings()")}
     r = run(server, script)
     arms = r["arms"]
     print(json.dumps([(a["road"], a["crossing"], round(a["f0"], 2), a["grade"], a["reach"], a["stop"]) for a in arms]))
     for name, (x, z) in FORMER_CAPS.items():
+        if not any(math.hypot(c["x"] - x, c["z"] - z) < 15 and c["depth"] > 0 for c in r["xs"]):
+            continue   # #1151: real heights (swissTLM3D) -- no cut there any more, so no side road has to descend
         assert any(math.hypot(a["crossing"][0] - x, a["crossing"][1] - z) < 15 for a in arms), name
     for a in arms:
         for k, prof in enumerate(a["sides"]):

@@ -329,8 +329,7 @@ export function roadwayGround(ground, pts, t, hw) {
 // #1196: per side, how far past its reach (where its floor met the centre line) a cut's ramp runs on, until the floor clears the highest
 // ground over the band it lowers (`roadway(s)`, s signed from the anchor): the cut stays on the lowered side of the slope, so the step the
 // ribbon would make at the reach end becomes the ramp's own grade and no face is left at the end. Only a side that stopped on the ground gets one; it ends before a
-// junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m; one that
-// would have to stop before it clears the band is dropped altogether (a tail cut short leaves an open face at its end).
+// junction or a piece end (those are nodes of the network only inside the reach, so nothing is cut there), at most TLM_TAIL_MAX m.
 export const TLM_TAIL_MAX = 40;
 export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
   return [-1, 1].map((dir, k) => {
@@ -340,7 +339,7 @@ export function armTail(a, roadway, len, junctions, u = UNDERPASS) {
     for (const [jx, jz] of junctions) { const n = nearestOnPolyline(a.pts, jx, jz); if (n.d < a.hw + 2) { const s = dir * (n.t - a.t); if (s > r) limit = Math.min(limit, s - r - a.hw - u.margin); } }
     let t = 0;
     while (t < limit && cutFloor(a, r + t, u) < roadway(dir * (r + t)) - 1e-9) t++;
-    return t < limit || cutFloor(a, r + t, u) >= roadway(dir * (r + t)) - 1e-9 ? Math.max(0, t) : 0;   // all or nothing: a tail cut short leaves a face
+    return Math.max(0, Math.min(t, limit));
   });
 }
 // #120: the nodes along a cut or arm inside its reach -- junction points on its road and the piece ends it reaches, never its
