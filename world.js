@@ -303,6 +303,14 @@ export function settleCut(cut, network, tries = 8) {
   }
 }
 export function cutFloor(c, s, u = UNDERPASS) { return c.f0 + (c.grade ?? u.grade) * Math.max(0, Math.abs(s) - c.flat); }
+// #1196: the highest ground over the carriageway (the centre line and both edges) at arc length t of pts. A cut ramp that ends where
+// its floor meets the centre line's ground leaves a step across a road lying on a side slope; ending it where the floor clears
+// the highest edge puts the whole carriageway on the ramp.
+export function roadwayGround(ground, pts, t, hw) {
+  const [x, z] = pointAtLength(pts, t), [ax, az] = pointAtLength(pts, Math.max(0, t - 0.5)), [bx, bz] = pointAtLength(pts, t + 0.5), d = Math.hypot(bx - ax, bz - az) || 1;
+  const nx = -(bz - az) / d * hw, nz = (bx - ax) / d * hw;
+  return Math.max(ground(x, z), ground(x + nx, z + nz), ground(x - nx, z - nz));
+}
 // #120: per side of the anchor t, how far a cut or arm reaches and why it stops: the floor meets the ground ('ground', first
 // whole metre), its road piece ends first ('end'), or it is still below the ground after flat + maxDepth / grade ('budget')
 export function armReach(a, groundAt, len, u = UNDERPASS) {
@@ -358,7 +366,7 @@ function continuedFloor(a, pts, t, floor, u) {
 // #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
 // there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
 // first, each piece once. What cannot take an arm becomes a cap point for capFloor.
-export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
+export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS, lateral = false) {
   const arms = [], caps = [], used = new Set([cut.road]), queue = [{ a: cut, rise0: 0 }];
   while (queue.length) {
     const { a, rise0 } = queue.shift();
@@ -375,7 +383,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
         // steps up by grade * corridor where the parent's corridor ends); the same street going on has no trough to cross
         const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? continuedFloor(a, o.pts, t, floor, u) : leaveCorridor(a, o.pts, t, floor, u);
         const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
-        const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
+        const r = armReach(arm, lateral ? (s) => roadwayGround(ground, o.pts, t + s, arm.hw) : (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);   // #1196: lateral = a TLM cut
         arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
         // an arm that runs out of budget on a road climbing steeper than its grade ends there, below the ground (capping it
         // instead lifts the floor above the deck's underside and loses the underpass); from there its floor runs out to the

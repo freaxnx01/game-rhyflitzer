@@ -1030,7 +1030,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, TLM_FINE, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, TLM_RAIL_TOP, tlmProfile, tlmUnderAt, tlmFloorTarget, armReach, cutNetwork, roadwayGround, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
 import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
@@ -1688,7 +1688,8 @@ function makeCut(c, deck = RAIL_DECKS[c.bridge], minFloor = -Infinity, skip = ne
   const yU = b.tlm ? tlmUnderAt(b.under, c.x, c.z) : null;   // #1196: the measured road under a TLM deck
   const target = yU !== null ? tlmFloorTarget(deckMin, yU, groundAt(0)) : cutFloorTarget(deckMin, groundAt(0));
   const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: Math.max(target, minFloor), raised: minFloor > target, capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [], tlmRoad: yU };
-  settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, gradedH); });
+  const reachAt = b.tlm ? (s) => roadwayGround(uncutH, c.road.pts, c.tRoad + s, hw) : groundAt;   // #1196: a TLM cut ends where its floor clears the whole carriageway, not just the centre line
+  settleCut(cut, (c) => { c.reach = armReach(c, reachAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, uncutH, undefined, !!b.tlm); });
   if (cut.unsettled) console.warn(`underpass at ${c.road.n} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): the cut floor did not settle; kept the shallowest capped floor`);
   for (const a of cut.arms) a.deck = b;
   cut.depth = Math.max(0, groundAt(0) - cut.f0);
@@ -1713,7 +1714,7 @@ function cutFloorMin(x, z) {
     // #1044: a bank road outside the trough keeps its ground, and so does every patch vertex whose triangles reach its ribbon, inside the
     // trough too -- every road cut's bank roads, not just its own deck's (Zürcherstrasse's cut under w4988444 runs on under w4985551's bank)
     if (a.roadCut && ((onBank(x, z, ROAD_GUARDS) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) || inGuardBleed(x, z, ROAD_GUARDS))) continue;
-    const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
+    const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, uncutH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
 function cutDepth(x, z) { return uncutH(x, z) - terrainH(x, z); }
@@ -6085,7 +6086,7 @@ window.__mm.tlmDecks = () => OSM_BRIDGES.filter((b) => b.tlm).map((b) => { const
 window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
 // #1044: the road cuts' arms (the cut road itself included): its road, polyline, half width, floor at the crossing and lowered span
 window.__mm.roadArms = () => ARMS.filter((a) => a.roadCut).map((a) => ({ road: a.road.id, pts: a.pts, hw: a.hw, f0: a.f0, span: armSpan(a), bounds: a.bounds }));
-window.__mm.roadArmFloor = (k, x, z) => { const a = ARMS.filter((a) => a.roadCut)[k]; return cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); };   // that arm's own floor (null off it)
+window.__mm.roadArmFloor = (k, x, z) => { const a = ARMS.filter((a) => a.roadCut)[k]; return cutFloorAt(a, x, z, a.u ?? UNDERPASS, uncutH); };   // that arm's own floor (null off it)
 // #120: the side-road arms of every cut, with a 1 m profile per side: [s, terrain, uncut mesh, x, z, this arm's own floor]
 // (terrain is the lowest floor of the whole network there, so where cuts overlap it stays under an arm that has surfaced)
 window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.map((a) => ({
