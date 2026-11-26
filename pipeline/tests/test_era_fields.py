@@ -132,3 +132,13 @@ def test_flag_site_leaves_a_road_owned_landmark_alone():
     w["anchors"]["landmarks"]["fridolinsbruecke"] = {"x": 900, "z": 900, "modern": True}
     F.flag_site(w, SITE)
     assert w["anchors"]["landmarks"]["fridolinsbruecke"]["modern"] is True
+
+
+def test_flag_site_leaves_the_suedspange_signs_alone():
+    w = _flag_world()
+    lm = w["anchors"]["landmarks"]
+    lm["suedspangeBaustelleOst"] = {"x": 900, "z": 50, "modern": True}    # outside the site, flagged by era_roads
+    lm["suedspangeFahrverbotOst"] = {"x": 50, "z": 50}                    # inside the site, not flagged
+    F.flag_site(w, SITE)
+    assert lm["suedspangeBaustelleOst"]["modern"] is True
+    assert "modern" not in lm["suedspangeFahrverbotOst"]
