@@ -635,12 +635,13 @@ export function fitRoad(r, h0, margin) {
 // profile -- truncating the cut there leaves the terrain over the carriageway. Beyond it the change banks back at 1:bank
 // where that reaches 0 inside `outer`, else linearly to 0 at `outer` (a steeper face, as a deep cutting's wall is):
 // continuous either way, so no crack against the mesh.
-function fitDelta(f, d, t, m, margin) {
+function fitDelta(f, d, t, m, margin, x, z) {
   // the band is cut `sag` under the profile: the patch lattice is grid-aligned, so a vertex reads the profile up to one
   // sub-cell diagonal (margin - 0.5) further along the road than the ribbon above it does, and on a grade that much
   // higher -- without the allowance the drawn ground stands over the road surface at a road's end (#1152 AC 9)
-  const y = f.h(t), reach = margin - 0.5;   // the sub-cell diagonal: how far along the road a lattice vertex can look
-  const sag = Math.max(Math.abs(f.h(Math.min(t + reach, f.len)) - y), Math.abs(y - f.h(Math.max(t - reach, 0))));
+  const h = f.h(t), reach = margin - 0.5;   // the sub-cell diagonal: how far along the road a lattice vertex can look
+  const sag = Math.max(Math.abs(f.h(Math.min(t + reach, f.len)) - h), Math.abs(h - f.h(Math.max(t - reach, 0))));
+  const y = f.at ? f.at(t, x, z, d) : h;   // #1231: a carriageway paired with another lies on their shared crossfall
   const need = y - sag - m, over = Math.max(0, d - f.hw - margin), span = f.outer - f.hw - margin;
   const mag = Math.min(Math.abs(need) - over / FIT.bank, Math.abs(need) * (1 - over / (span || 1)));
   return Math.sign(need) * Math.max(0, mag);
@@ -653,10 +654,91 @@ export function roadFitAt(cands, x, z, m, margin) {
     const [ax, az] = f.pts[i], [bx, bz] = f.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
     const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, d = Math.hypot(x - ax - u * dx, z - az - u * dz);
     if (d >= f.outer) continue;
-    const delta = fitDelta(f, d, f.cum[i] + u * Math.sqrt(L2), m, margin);
+    const delta = fitDelta(f, d, f.cum[i] + u * Math.sqrt(L2), m, margin, x, z);
     if (!any || delta < best) { best = delta; any = true; }
   }
   return any ? best : 0;
+}
+// #1231: OSM draws a dual carriageway's two one-way ways closer than their drawn widths (the A3: axes 11.4 m apart, each
+// 14 m wide), and each has its own profile, so the higher strip's edge stood over the lower one. Paired carriageways
+// share one surface between their axes -- a crossfall from one profile to the other -- and each is drawn only up to its
+// share of the gap. Pairs: one-way, profiled, not a bridge, running opposite ways (cos <= -cos: a slip lane beside its
+// motorway runs the same way and ramps off to its own height) and within fade of touching.
+// grade caps the crossfall: where two ways converge (a merge, a slip road's gore) the gap goes to 0 and the slope with it to infinity.
+// taper: metres over which the crossfall comes in from an open end (dualEnds), so the tilt never jumps within a ribbon step.
+export const DUAL = { cos: 0.9, fade: 2, grade: 0.06, taper: 24 };
+const dualable = (r) => r.oneway && r.zp && !r.bridge;
+const DUAL_LEN = new WeakMap(), dualLen = (r) => { let l = DUAL_LEN.get(r); if (l === undefined) DUAL_LEN.set(r, l = polylineLength(r.pts)); return l; };   // the fit asks per lattice vertex
+function axisDir(pts, t) { const a = pointAtLength(pts, Math.max(0, t - 1)), b = pointAtLength(pts, t + 1), l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }
+// b seen from the point (x, z) on a's axis at station s: its nearest point, or null where b is past its end or not parallel
+function partnerFoot(a, s, b, x, z) {
+  if (pastEnd(b.pts, x, z) !== 0) return null;
+  const n = nearestOnPolyline(b.pts, x, z), da = axisDir(a.pts, s), db = axisDir(b.pts, n.t);
+  return da[0] * db[0] + da[1] * db[1] <= -DUAL.cos ? n : null;
+}
+export function dualPartners(roads) {
+  const cand = roads.filter(dualable).map((r) => { const xs = r.pts.map((p) => p[0]), zs = r.pts.map((p) => p[1]); return { r, box: [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)], len: polylineLength(r.pts) }; });
+  const out = new Map(), add = (a, b) => { if (!out.has(a)) out.set(a, []); if (!out.get(a).includes(b)) out.get(a).push(b); };
+  for (const A of cand) for (const B of cand) {
+    if (A === B) continue;
+    const reach = (A.r.w + B.r.w) / 2 + DUAL.fade;
+    if (A.box[0] > B.box[2] + reach || B.box[0] > A.box[2] + reach || A.box[1] > B.box[3] + reach || B.box[1] > A.box[3] + reach) continue;
+    for (let s = 0; s <= A.len; s += 8) { const [x, z] = pointAtLength(A.r.pts, s), n = partnerFoot(A.r, s, B.r, x, z); if (n && n.d < reach) { add(A.r, B.r); add(B.r, A.r); break; } }
+  }
+  return out;
+}
+// per paired road, whether its start and end are open: no other paired way begins or ends there (a joint between two
+// OSM ways of one carriageway is not open; the start of a bridge deck, a merge or the end of the dual stretch is)
+export function dualEnds(pairs) {
+  const ends = [...pairs.keys()].flatMap((r) => [[r, r.pts[0]], [r, r.pts[r.pts.length - 1]]]);
+  const open = (r, p) => !ends.some(([o, q]) => o !== r && Math.hypot(q[0] - p[0], q[1] - p[1]) <= 0.5);
+  return new Map([...pairs.keys()].map((r) => [r, [open(r, r.pts[0]), open(r, r.pts[r.pts.length - 1])]]));
+}
+// 0 at an open end of r, rising to 1 over DUAL.taper metres; station t of a road len long
+function endTaper(ends, r, t, len) {
+  const o = ends && ends.get(r); if (!o) return 1;
+  return Math.min(1, (o[0] ? t : Infinity) / DUAL.taper, (o[1] ? len - t : Infinity) / DUAL.taper);
+}
+// how much of b's crossfall a point of a takes: 1 while the strips overlap or touch, 0 once they are fade apart
+const dualWeight = (a, b, sep) => Math.min(1, Math.max(0, ((a.w + b.w) / 2 + DUAL.fade - sep) / DUAL.fade));
+// a's raw profile height at (x, z), station s, dA metres off its axis: one plane across the strip (a ribbon has vertices
+// only at its edges), through its own profile on the axis and the nearest partner's profile at that partner's axis -- so
+// between the two axes both carriageways read the same height. ends (dualEnds): taper the crossfall in from open ends
+export function dualProfileH(a, partners, x, z, s, dA, ends = null) {
+  const own = roadProfileH(a, s), tb = dualTable(a, partners, ends), f = Math.max(0, Math.min(tb.n, s / (tb.len || 1) * tb.n)), i = Math.min(tb.n - 1, Math.floor(f)), w = f - i;
+  const r0 = tb.rows[i], r1 = tb.rows[i + 1] || r0, g = r0.g + (r1.g - r0.g) * w; if (!g) return own;
+  const u = (w < 0.5 ? r0.u : r1.u) || r0.u || r1.u, cx = r0.c[0] + (r1.c[0] - r0.c[0]) * w, cz = r0.c[1] + (r1.c[1] - r0.c[1]) * w;
+  return own + g * ((x - cx) * u[0] + (z - cz) * u[1] >= 0 ? 1 : -1) * dA;
+}
+// the crossfall of a at station s (axis point c): g, the signed slope toward the nearest partner (capped, faded, tapered),
+// and u, the unit vector toward that partner's axis (null without one)
+function dualSlope(a, partners, s, [cx, cz], ends) {
+  let best = null;
+  for (const b of partners) { const n = partnerFoot(a, s, b, cx, cz); if (n && (!best || n.d < best.n.d)) best = { b, n }; }
+  if (!best || !best.n.d) return { g: 0, u: null };
+  const k = dualWeight(a, best.b, best.n.d) * endTaper(ends, a, s, dualLen(a)) * endTaper(ends, best.b, best.n.t, dualLen(best.b));
+  const q = pointAtLength(best.b.pts, best.n.t), u = [(q[0] - cx) / best.n.d, (q[1] - cz) / best.n.d];
+  return { g: k * Math.max(-DUAL.grade, Math.min(DUAL.grade, (roadProfileH(best.b, best.n.t) - roadProfileH(a, s)) / best.n.d)), u };
+}
+// dualSlope every DUAL_STEP metres along a, built once per (partners, ends, a): the fit asks for every lattice vertex
+const DUAL_STEP = 2, DUAL_TABLES = new WeakMap();
+function dualTable(a, partners, ends) {
+  let memo = DUAL_TABLES.get(partners); if (!memo || memo.ends !== ends) DUAL_TABLES.set(partners, memo = { ends, m: new Map() });
+  let tb = memo.m.get(a); if (tb) return tb;
+  const len = dualLen(a), n = Math.max(1, Math.ceil(len / DUAL_STEP)), rows = [];
+  for (let k = 0; k <= n; k++) { const s = len * k / n, c = pointAtLength(a.pts, s); rows.push({ c, ...dualSlope(a, partners, s, c, ends) }); }
+  memo.m.set(a, tb = { len, n, rows }); return tb;
+}
+// how far a's strip may reach on each side of its axis point (x, z) with unit normal (nx, nz) (left = -n, right = +n):
+// to its share of the gap to a partner it overlaps, split by their half widths; Infinity where nothing overlaps
+export function dualClip(a, partners, x, z, nx, nz) {
+  const out = { l: Infinity, r: Infinity }, s = nearestOnPolyline(a.pts, x, z).t;
+  for (const b of partners) {
+    const n = partnerFoot(a, s, b, x, z); if (!n || n.d >= (a.w + b.w) / 2) continue;
+    const q = pointAtLength(b.pts, n.t), side = (q[0] - x) * nx + (q[1] - z) * nz > 0 ? 'r' : 'l';
+    out[side] = Math.min(out[side], n.d * a.w / (a.w + b.w));
+  }
+  return out;
 }
 // #1152: where the game already patches the terrain at 1 m (cuts, grades, banks, pads, the cave) profile and fit step back:
 // 0 inside those cells and the ring around them, rising to 1 over `ramp` m, so a fitted cell never borders a 1 m one
@@ -1276,9 +1358,12 @@ export function surfTriAt(sf, x, z) {
   for (let i = 0; i < pts.length - 1; i++) {
     const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
     const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / L2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t);
-    if (!best || d < best.d) best = { d, i, t, f: Math.min(1, Math.max(0, (((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2) / hw + 1) / 2)) };
+    const side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2);
+    if (!best || d < best.d) best = { d, i, t, side, f: Math.min(1, Math.max(0, (side / hw + 1) / 2)) };
   }
   if (!best || best.d > hw + 0.01) return null;
+  // #1231: a strip clipped at a paired carriageway (lim: drawn reach per vertex each side) ends at its drawn edge
+  const { lim } = sf; if (lim && (best.side < -Math.max(lim.l[best.i], lim.l[best.i + 1]) - 0.01 || best.side > Math.max(lim.r[best.i], lim.r[best.i + 1]) + 0.01)) return null;
   const { i, t, f } = best, hA = hl[i], hB = hr[i], hC = hr[i + 1], hD = hl[i + 1];
   return f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f);
 }
