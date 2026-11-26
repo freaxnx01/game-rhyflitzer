@@ -1862,3 +1862,34 @@ test('#1152 roadFitAt: on a grade the band is cut one sub-cell diagonal of fall 
   const flat = fitRoad(FLAT_ROAD, () => 12, mg);                    // no grade, no sag
   assert.equal(roadFitAt(cands(flat), 50, 0, 12, mg), -2);
 });
+
+import { flatRoofLevels, buriedSolid } from '../world.js';
+
+test('flatRoofLevels: flat ground gives base + h on both levels', () => {
+  const sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
+  assert.deepEqual(flatRoofLevels(sq, 4, () => 5), { base: 5, top: 9 });
+});
+
+test('flatRoofLevels: on a slope the roof stands on the ground under the centroid', () => {
+  const sq = [[0, 0], [10, 0], [10, 10], [0, 10]];
+  assert.deepEqual(flatRoofLevels(sq, 4, (x) => x), { base: 0, top: 9 });
+});
+
+test('flatRoofLevels: a centroid in a low notch never lowers the roof below base + h', () => {
+  const u = [[0, 0], [30, 0], [30, 30], [20, 30], [20, 10], [10, 10], [10, 30], [0, 30]];
+  const groundAt = (x, z) => (x >= 10 && x <= 20 && z >= 10 ? 0 : 6);
+  const { base, top } = flatRoofLevels(u, 5, groundAt);
+  assert.equal(base, 0);
+  assert.ok(top >= base + 5);
+});
+
+test('flatRoofLevels: a degenerate ring falls back to the vertex mean', () => {
+  const { top } = flatRoofLevels([[2, 2], [4, 4], [6, 6]], 3, (x) => x);
+  assert.equal(top, 7);
+});
+
+test('buriedSolid: only flagged building solids, with a 0.2 m margin', () => {
+  assert.equal(buriedSolid({ bldg: true, h: 10 }, 9.9), true);
+  assert.equal(buriedSolid({ bldg: true, h: 10 }, 9.7), false);
+  assert.equal(buriedSolid({ h: 10 }, 20), false);
+});

@@ -1362,3 +1362,19 @@ export function meshLift(pts, tris, h, hAt, step = 3) {
   }
   return up;
 }
+
+// #1200: a flat-roof building on a slope. base = the lowest ground under the ring (the walls start there); the roof stands on the
+// ground under the ring's area centroid + h, because h is measured there (pipeline/building_heights.py). Never lower than base + h.
+export function flatRoofLevels(ring, h, groundAt) {
+  let base = Infinity;
+  for (const [x, z] of ring) base = Math.min(base, groundAt(x, z));
+  let a2 = 0, cx = 0, cz = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length], k = x0 * z1 - x1 * z0;
+    a2 += k; cx += (x0 + x1) * k; cz += (z0 + z1) * k;
+  }
+  const c = Math.abs(a2) < 1e-9 ? [ring.reduce((s, p) => s + p[0], 0) / ring.length, ring.reduce((s, p) => s + p[1], 0) / ring.length] : [cx / (3 * a2), cz / (3 * a2)];
+  return { base, top: Math.max(base + h, groundAt(c[0], c[1]) + h) };
+}
+// #1200: an OSM building's solid whose top lies under the ground where the car (or walker) is cannot block it
+export function buriedSolid(o, ground) { return !!o.bldg && ground >= o.h - 0.2; }

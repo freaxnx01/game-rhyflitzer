@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-25 22:09` Gebäude mit **Flachdach** am **Hang** stecken nicht mehr halb im Boden: Die **Schule Sisseln** steht jetzt ganz da, und wo ein Gebäude doch unter dem Boden liegt, gibt es keine **unsichtbare Wand** mehr.
 - `2026-11-25 09:46` **Bahnbrücken** und **Unterführungen** haben jetzt ihre echte Höhe aus **swissTLM3D**: Die Brücken liegen höher, die Strasse darunter taucht nicht mehr künstlich ab, zum Beispiel in **Stein** und am **Königsweg**.
 - `2026-11-24 16:20` Im **Mehrspieler-Rennen** bietet das **Pausenmenü** kein «Rennen neu starten» mehr an: Ein Neustart würde den gemeinsamen Start verlassen.
 - `2026-11-24 14:41` Auf dem Handy sitzen die **Steuerelemente** jetzt in den Ecken unten, die **Geschwindigkeit** steht als Zahl zwischen Deinen Daumen statt als Tacho, und die **Karte** ist klein oben rechts; so bleibt die Mitte frei für die Strasse.
