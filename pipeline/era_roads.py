@@ -4,7 +4,9 @@ Needs the buildings already flagged by `era_1952.py` (`modern`); the traced hous
 side (midpoint inside the CH outline; the German side stays as today), it is a motorway (`motorway*`), lies at least
 INDUSTRIAL_SHARE inside the Sisslerfeld industrial site and is not a main road, or is a residential street
 (`residential`, `living_street`, `service`) with no old Swiss building footprint within NEAR_OLD. The Fridolinsbruecke
-is hidden on both banks. Precedence: bridge > motorway > industrial > empty.
+is hidden on both banks. The Südspange (`-42001`, `-42003`) and its cycle path (`-42002`) are hidden by id as "late"
+on either bank (#1150); the four building-site signs of its construction site get `modern` with them. Precedence:
+bridge > late > motorway > industrial > empty.
 
 A kept bridge also joins every road vertex within BRIDGE_SNAP of its ends, so the Holzbruecke keeps its Swiss approach.
 
@@ -50,6 +52,8 @@ MIN_TRIM = 0.5  # m, a street that loses less than this in total is not written
 RESIDENTIAL = ("residential", "living_street", "service")
 MAIN_PREFIXES = ("motorway", "trunk", "primary", "secondary", "tertiary")
 BRIDGE_NAME = "Fridolinsbrücke"
+LATE_IDS = (-42001, -42002, -42003)  # #1150: the Südspange, built in the 2020s, and its cycle path
+SUEDSPANGE_SIGNS = ("suedspangeBaustelleOst", "suedspangeBaustelleWest", "suedspangeFahrverbotOst", "suedspangeFahrverbotWest")  # #1150: the signs of its building site
 HERE = Path(__file__).parent
 
 
@@ -77,13 +81,15 @@ def _swiss_reason(line, road, industrial, old_tree):
 
 
 def classify(roads, buildings, swiss, industrial):
-    """Map road index -> "bridge" | "motorway" | "industrial" | "empty"; only hidden roads. Game frame."""
+    """Map road index -> "bridge" | "late" | "motorway" | "industrial" | "empty"; only hidden roads. Game frame."""
     old_tree = STRtree(_old_swiss_footprints(buildings, swiss))
     hidden = {}
     for i, road in enumerate(roads):
         line = LineString(road["pts"])
         if road.get("n") == BRIDGE_NAME:
             hidden[i] = "bridge"
+        elif road.get("id") in LATE_IDS:
+            hidden[i] = "late"
         elif swiss.contains(line.interpolate(0.5, normalized=True)):
             reason = _swiss_reason(line, road, industrial, old_tree)
             if reason:
@@ -496,7 +502,15 @@ def apply(world, outline_lv95, industrial_lonlat):
         bridge.pop("modern", None)
         if any(roads[i].get("n") == BRIDGE_NAME for i in hidden):
             bridge["modern"] = True  # the landmark goes with its road: its viewpoints are not offered in 1952
-    counts = {k: sum(1 for v in hidden.values() if v == k) for k in ("motorway", "bridge", "industrial", "empty")}
+    late = any(reason == "late" for reason in hidden.values())
+    for name in SUEDSPANGE_SIGNS:
+        sign = world.get("anchors", {}).get("landmarks", {}).get(name)
+        if sign is None:
+            continue
+        sign.pop("modern", None)
+        if late:
+            sign["modern"] = True  # #1150: the building-site signs go with their road
+    counts = {k: sum(1 for v in hidden.values() if v == k) for k in ("motorway", "bridge", "late", "industrial", "empty")}
     counts["restored"] = restored
     counts["trimmed"] = len(trimmed)
     return counts
