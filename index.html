@@ -2389,20 +2389,20 @@ function signPanel(g, tex, w, h, y) {
     m.position.set(0, y, signPanelZ(back)); if (back) m.rotation.y = Math.PI; g.add(m);
   }
 }
-function roadSign(kind, x, z, rot, build, panel) {   // #822: panel = the main panel's shape for poleTop
+function roadSign(kind, x, z, rot, build, panel, modern = false) {   // #822: panel = the main panel's shape for poleTop; #1150: modern signs go to the time layer
   const top = poleTop(panel), g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.y = top / 2; g.add(pole); build(g, signTextures());
-  g.position.set(x, terrainH(x, z), z); g.rotation.y = Math.PI / 2 - rot; g.traverse(o => o.castShadow = true); signs.add(g);
-  ROAD_SIGNS.push({ kind, x, z });
+  g.position.set(x, terrainH(x, z), z); g.rotation.y = Math.PI / 2 - rot; g.traverse(o => o.castShadow = true); (modern ? ERA.group : signs).add(g);
+  ROAD_SIGNS.push({ kind, x, z, ...(modern ? { modern: true } : {}) });
 }
-function baustelleSign(x, z, rot) {
+function baustelleSign(x, z, rot, modern = false) {
   roadSign('baustelle', x, z, rot, (g, T) => {
     signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);   // #822: panel (and the plate below it) covers the pole
     for (const side of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 0.1), new THREE.MeshLambertMaterial({ map: T.bake })); b.position.set(side * 1.2, 0.5, 0); g.add(b); }   // Leitbaken
-  }, { shape: 'tri', apex: 2.15 + 0.5 - 1.0 * 10 / 256, slope: 0.536 });   // #822: apex 2.611, half-width per metre (120/256)/(224/256) = 0.536
+  }, { shape: 'tri', apex: 2.15 + 0.5 - 1.0 * 10 / 256, slope: 0.536 }, modern);   // #822: apex 2.611, half-width per metre (120/256)/(224/256) = 0.536
 }
-function fahrverbotSign(x, z, rot) {
-  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); }, { shape: 'disc', y: 2.1, d: 0.9 * 248 / 256 });   // #822: 4/256 border gap each side
+function fahrverbotSign(x, z, rot, modern = false) {
+  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); }, { shape: 'disc', y: 2.1, d: 0.9 * 248 / 256 }, modern);   // #822: 4/256 border gap each side
 }
 function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on four wheels, red cab in front (local +x), serving hatch and awning on the local -z side, hand-painted roof board; generic look, no logo (docs/07); solid
   const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
@@ -3224,7 +3224,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
     if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z);
     if (HIDE) hideoutBuild();   // #102
-    for (const s of Object.values(lm)) { if (s.kind === 'baustelle') baustelleSign(s.x, s.z, s.rot); else if (s.kind === 'fahrverbot') fahrverbotSign(s.x, s.z, s.rot); }   // #42
+    for (const s of Object.values(lm)) { const m = !!s.modern; if (s.kind === 'baustelle') baustelleSign(s.x, s.z, s.rot, m); else if (s.kind === 'fahrverbot') fahrverbotSign(s.x, s.z, s.rot, m); }   // #42, #1150: the Südspange's site signs go with the road into the time layer
   }
   await loadStage('trees');
   // trees along both banks and scattered
@@ -6186,7 +6186,7 @@ window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageD
 window.__mm.motorwayLabels = () => MOTORWAY_LABELS.map(l => ({ ...l }));   // #226
 window.__mm.minimapNames = () => MAP_NAMES.map(l => ({ ...l }));
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
-window.__mm.roadSigns = () => ROAD_SIGNS.map(s => ({ ...s }));   // #42
+window.__mm.roadSigns = () => ROAD_SIGNS.map(s => ({ ...s, shown: !(s.modern && ERA.on) }));   // #42, #1150: a modern sign is hidden in 1952
 // #42: at (x, z) the grade profile (null outside every grade's corridor), the ground and the uncut mesh
 window.__mm.gradeAt = (x, z) => { let profile = null; for (const gc of GRADE_CUTS) { const n = nearestOnPolyline(gc.pts, x, z); if (n.d <= gc.inner) { profile = gradeY(gc, n.t); break; } } return { profile, terrain: terrainH(x, z), mesh: meshH(x, z) }; };
 // how far a deck end at (x, z), height h, is off what it rests on: the ground, or (#42: a switch in the track fan over the
@@ -8197,7 +8197,7 @@ const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
 const eraEntries = list => list.filter(e => eraShown(e, ERA.on));   // #530: entries of hidden buildings leave the lists
 const GONE_LANDING = new WeakMap();   // the road flags never change: one answer per entry
-const landsOnGoneRoad = e => { let v = GONE_LANDING.get(e); if (v === undefined) { const [x, z] = e.jump || [e.x, e.z]; v = Number.isFinite(x) && Number.isFinite(z) && roadGoneAt(roadHitsAt(x, z)); GONE_LANDING.set(e, v); } return v; };
+const landsOnGoneRoad = e => { let v = GONE_LANDING.get(e); if (v === undefined) { const [x, z] = e.j || e.jump || [e.x, e.z]; v = Number.isFinite(x) && Number.isFinite(z) && roadGoneAt(roadHitsAt(x, z)); GONE_LANDING.set(e, v); } return v; };   // #1150: e.j is the jump spot jumpTo lands on (landmarkEntries store it as j), not e.at
 const eraJumpEntries = list => ERA.on ? eraEntries(list).filter(e => !landsOnGoneRoad(e)) : list;   // #530: a J spot on a road of today is not offered in 1952
 const eraEnterables = () => eraEntries(visibleEnterables(ENTERABLES, secretRevealed()));
 function destEntries() { return [...eraJumpEntries(JUMP_ENTRIES).filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them

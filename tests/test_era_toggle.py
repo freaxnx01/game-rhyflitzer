@@ -444,3 +444,34 @@ def test_about_names_the_swisstopo_history(server):
         b.close()
     assert "SWISSIMAGE HIST" in text and href.startswith("https://map.geo.admin.ch"), (text[:200], href)
     assert page.errors == []
+
+
+SUEDSPANGE_AT = (1300.0, 576.0)   # on -42001, the stretch over the cutting
+
+
+@needs_world
+def test_suedspange_and_its_signs_are_gone_in_1952(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        def names():   # the J list is filled while the dialog is open (as in test_hidden_buildings_leave_map_plates_and_jumps)
+            page.keyboard.press("j")
+            page.wait_for_function("() => window.__mm.jumpList().length > 0", timeout=60000)
+            rows = [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
+            page.keyboard.press("Escape")
+            return rows
+        signs = lambda: page.evaluate("() => window.__mm.roadSigns()")
+        today = (names(), signs())
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(SUEDSPANGE_AT))
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        past = (names(), signs(), car_of(page), page.evaluate(ERA))
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        back = (names(), signs())
+        b.close()
+    assert "Südspange Sisslerfeld" in today[0] and "Südspange Sisslerfeld" not in past[0] and "Südspange Sisslerfeld" in back[0]
+    assert len(today[1]) == 4 and all(s["shown"] for s in today[1]) and all(s["shown"] for s in back[1])
+    assert all(not s["shown"] and s["modern"] for s in past[1]), past[1]
+    car, era = past[2], past[3]
+    assert math.hypot(car["x"] - SUEDSPANGE_AT[0], car["z"] - SUEDSPANGE_AT[1]) > 3 and not era["goneHere"], (car, era)
+    assert page.errors == []
