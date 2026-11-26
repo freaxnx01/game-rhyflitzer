@@ -81,7 +81,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
-- `2026-11-26 13:05` Die beiden **Fahrbahnen der A3** liegen nicht mehr übereinander: Sie treffen sich in der Mitte auf gleicher Höhe, mit zwei **Mittellinien** nebeneinander, statt dass die eine **Fahrbahn** mit ihren Linien über die andere ragt und **Kanten** in die Luft stehen.
+- `2026-11-26 14:23` Die beiden **Fahrbahnen der A3** liegen nicht mehr übereinander: Sie treffen sich in der Mitte auf gleicher Höhe, mit zwei **Mittellinien** nebeneinander, statt dass die eine **Fahrbahn** mit ihren Linien über die andere ragt und **Kanten** in die Luft stehen.
 - `2026-11-25 21:45` Die **Ankengasse** unter der **A3** liegt in ihrer Unterführung jetzt eben: Die Fahrbahn kippt nicht mehr zur Seite, und ihr Rand steht nicht mehr über dem Boden.
 - `2026-11-25 20:33` Unter der **A3** bei der **Zürcherstrasse** (Stein) steht neben der abgesenkten Strasse keine offene **Erdkante** mehr: Wo keine Stützmauer hinpasst, bleibt der Boden auf seiner Höhe.
 - `2026-11-25 19:18` **Bahnbrücken** schweben nicht mehr über der Strasse: Sie stehen auf ihrem **Bahndamm** mit **Widerlagern** links und rechts der Durchfahrt, und ihre Enden sacken nicht mehr ab, zum Beispiel in **Stein** und an der **Kapfstrasse**.
