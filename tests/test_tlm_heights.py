@@ -132,6 +132,8 @@ def test_road_deck_ends_have_no_step(world):
 
 @needs_world
 def test_untouched_crossings_unchanged(world):
+    # #1231 re-baselined three A3 bridges (Kaistenbergstrasse x2, the unnamed road at -873/1091): their generic decks are
+    # seated on the approach carriageway, whose surface moved when the paired carriageways were clipped at the median
     n, bad = 0, []
     for f in FIXTURE:
         if f["tlm"] is not None:

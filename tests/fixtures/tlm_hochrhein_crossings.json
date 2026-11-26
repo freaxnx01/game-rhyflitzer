@@ -655,9 +655,9 @@
    "z": 4478.354629313623,
    "road": "Kaistenbergstrasse",
    "before": {
-    "deck": 69.761,
+    "deck": 69.59,
     "road": 63.296,
-    "clearance": 5.265,
+    "clearance": 5.095,
     "depth": 2.466
    },
    "tlm": null,
@@ -669,9 +669,9 @@
    "z": 4487.280745843911,
    "road": "Kaistenbergstrasse",
    "before": {
-    "deck": 69.469,
+    "deck": 69.53,
     "road": 63.436,
-    "clearance": 4.833,
+    "clearance": 4.894,
     "depth": 1.601
    },
    "tlm": null,
@@ -762,9 +762,9 @@
    "z": 1091.4294310396187,
    "road": "",
    "before": {
-    "deck": 21.69,
+    "deck": 21.701,
     "road": 15.78,
-    "clearance": 4.71,
+    "clearance": 4.721,
     "depth": 5.481
    },
    "tlm": null,
