@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-11-27 16:28` **Rhyflitzer FM**: **Rock** und **Cruise** werden nach dem letzten Lied nicht mehr stumm, sondern fangen wieder vorne an; mit <kbd>7</kbd> springst Du vom ersten Lied zum letzten zurück.
+
 ### Changed
 
 - `2026-11-27 12:18` **Nitro** wirkt jetzt auch **unter Wasser** voll, und Du siehst dort Deine eigenen Flammen, so wie Deine Mitspieler sie schon sahen.
