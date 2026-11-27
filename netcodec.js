@@ -4,7 +4,7 @@
 
 import { KINDS, KNOCKABLE, KNOCK_SOUNDS } from './knock.js';   // #1112: the sounds a knock message may carry; #1191: the kinds and their sounds. knock.js is pure too
 
-export const CODE_VERSION = 4;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix; #1191: knock names the prop; #1190: the pontoon message)
+export const CODE_VERSION = 5;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix; #1191: knock names the prop; #1190: the pontoon message; #1117: the race start names its course)
 export const CODE_TTL = 600;        // seconds a code stays valid (10 minutes, shown as a countdown)
 export const CODE_SKEW = 60;        // seconds a code may lie in the future before it reads as expired (clock skew between devices)
 export const CODE_MAX = 16000;      // characters: a longer code is refused unread
@@ -197,11 +197,22 @@ const TIMES_MAX = 17, ST = ['run', 'fin', 'dnf'];
 const raceTime = (t) => finite(t) && t >= 0 && t <= RACE_MS;
 const cpIndex = (i, lo) => Number.isInteger(i) && i >= lo && i <= CP_MAX;
 
-// parseStart — 'cruise' is the lobby cruise; 'race' carries the host-clock T0 and the host's now for the offset.
+export const COURSE_WIRE_MAX = 7;   // #1117: the highest course index a race start may name (five today, room for more)
+const SEED_MAX = 0xffffffff;
+const courseField = (m) => {
+  const hasCourse = m.course !== undefined, hasSeed = m.seed !== undefined;
+  if (hasCourse === hasSeed) return null;
+  if (hasCourse) return Number.isInteger(m.course) && m.course >= 0 && m.course <= COURSE_WIRE_MAX ? { course: m.course } : null;
+  return Number.isInteger(m.seed) && m.seed >= 0 && m.seed <= SEED_MAX ? { seed: m.seed } : null;
+};
+
+// parseStart — 'cruise' is the lobby cruise; 'race' carries the host-clock T0, the host's now for the offset, and
+// the course: `course` (rotation index) or `seed` (random draw), exactly one (#1117).
 function parseStart(m) {
   if (!START_MODES.includes(m.mode)) return null;
   if (m.mode !== 'race') return { type: 'start', mode: m.mode };
-  return finite(m.t0) && finite(m.now) ? { type: 'start', mode: 'race', t0: m.t0, now: m.now } : null;
+  const course = courseField(m);
+  return finite(m.t0) && finite(m.now) && course ? { type: 'start', mode: 'race', t0: m.t0, now: m.now, ...course } : null;
 }
 
 // parseRow — one row of a board: id 0..3, a clean name, st ∈ run/fin/dnf, ≤ 17 finite non-decreasing times,
