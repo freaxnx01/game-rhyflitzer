@@ -76,3 +76,32 @@ function probesAlong(r, step, inset, out) {
 }
 
 const probe = (r, x, z, side) => ({ x, z, n: r.n, cls: r.cls, side });
+
+// roadAt / greenAt: (x, z) => the highest drawn y of that surface there, or null
+export function scanProbes(probes, roadAt, greenAt, tol = SCAN.tol) {
+  let done = 0, worst = 0; const spots = [];
+  for (const p of probes) {
+    const yRoad = roadAt(p.x, p.z), yGreen = greenAt(p.x, p.z);
+    if (yRoad === null || yGreen === null) continue;
+    done++;
+    const d = yGreen - yRoad;
+    worst = Math.max(worst, d);
+    if (d > tol) spots.push({ ...p, yRoad, yGreen, d });
+  }
+  return { done, worst, spots };
+}
+
+// one defect is a run of neighbouring probes: one entry per road and r metres, the worst probe standing for it
+export function clusterSpots(spots, r = SCAN.near) {
+  const out = [];
+  for (const s of [...spots].sort((a, b) => b.d - a.d)) {
+    const hit = out.find((c) => c.n === s.n && Math.hypot(c.x - s.x, c.z - s.z) <= r);
+    if (hit) hit.count++; else out.push({ ...s, count: 1 });
+  }
+  return out;
+}
+
+export function diffKnown(spots, known, r = SCAN.near) {
+  const close = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) <= r;
+  return { fresh: spots.filter((s) => !known.some((k) => close(s, k))), gone: known.filter((k) => !spots.some((s) => close(s, k))) };
+}

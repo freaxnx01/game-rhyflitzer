@@ -1,7 +1,7 @@
 // #1248: vertical rays over drawn triangles and the road-vs-ground scan. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SCAN, triangleIndex, topAt, roadProbes } from '../groundscan.js';
+import { SCAN, triangleIndex, topAt, roadProbes, scanProbes, clusterSpots, diffKnown } from '../groundscan.js';
 
 // a flat 20 x 20 m square at height h from two triangles, as a non-indexed position array (x, y, z per vertex)
 const square = (h, x0 = 0, z0 = 0, s = 20) => [x0, h, z0, x0 + s, h, z0, x0, h, z0 + s, x0 + s, h, z0, x0 + s, h, z0 + s, x0, h, z0 + s];
@@ -78,4 +78,37 @@ test('roadProbes_zeroLengthSegment_isSkipped', () => {
 test('roadProbes_narrowerThanTwiceTheInset_keepsEdgesOnTheCentre', () => {
   const edges = roadProbes([road([[0, 0], [1, 0]], { w: 0.4 })]).filter((p) => p.side !== 'centre');
   assert.ok(edges.every((p) => near(p.z, 0)));
+});
+
+const P = (x, z, n = 'A') => ({ x, z, n, cls: 'residential', side: 'centre' });
+
+test('scanProbes_greenAboveRoadBeyondTol_isASpot', () => {
+  const res = scanProbes([P(0, 0), P(4, 0), P(8, 0)], () => 10, (x) => (x === 4 ? 10.05 : 9.9));
+  assert.equal(res.done, 3);
+  assert.ok(near(res.worst, 0.05, 1e-9));
+  assert.equal(res.spots.length, 1);
+  assert.deepEqual({ x: res.spots[0].x, yRoad: res.spots[0].yRoad, yGreen: res.spots[0].yGreen }, { x: 4, yRoad: 10, yGreen: 10.05 });
+});
+
+test('scanProbes_withinTol_isNoSpot', () => {
+  assert.equal(scanProbes([P(0, 0)], () => 10, () => 10.009).spots.length, 0);
+});
+
+test('scanProbes_missingRoadOrGreen_isNotCounted', () => {
+  const res = scanProbes([P(0, 0), P(4, 0)], (x) => (x ? null : 10), (x) => (x ? 11 : null));
+  assert.deepEqual([res.done, res.worst, res.spots.length], [0, 0, 0]);
+});
+
+test('clusterSpots_neighboursOnTheSameRoad_mergeIntoTheWorst', () => {
+  const s = [{ ...P(0, 0), d: 0.02 }, { ...P(4, 0), d: 0.09 }, { ...P(8, 0), d: 0.03 }, { ...P(4, 1, 'B'), d: 0.05 }, { ...P(100, 0), d: 0.04 }];
+  const c = clusterSpots(s);
+  assert.deepEqual(c.map((x) => [x.n, x.x, x.d, x.count]), [['A', 4, 0.09, 3], ['B', 4, 0.05, 1], ['A', 100, 0.04, 1]]);
+});
+
+test('diffKnown_splitsFreshAndGone', () => {
+  const spots = [{ ...P(0, 0), d: 0.1 }, { ...P(500, 0), d: 0.1 }];
+  const known = [{ x: 5, z: 5, n: 'A', issue: null }, { x: 900, z: 0, n: 'C', issue: 1300 }];
+  const { fresh, gone } = diffKnown(spots, known);
+  assert.deepEqual(fresh.map((s) => s.x), [500]);
+  assert.deepEqual(gone.map((k) => k.x), [900]);
 });
