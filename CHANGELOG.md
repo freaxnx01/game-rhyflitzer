@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-27 12:18` **Nitro** wirkt jetzt auch **unter Wasser** voll, und Du siehst dort Deine eigenen Flammen, so wie Deine Mitspieler sie schon sahen.
 - `2026-11-27 11:26` Im **Mehrspieler** ist das **Namensschild** über einem anderen Auto aus der Nähe kleiner und durchsichtiger, damit man das Auto darunter noch sieht.
 - `2026-11-26 15:34` Im **1952**-Modus (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) ist die **Südspange** samt Radweg und Baustellenschildern verschwunden; nur ihr **Einschnitt** bleibt.
 - `2026-11-25 22:09` Gebäude mit **Flachdach** am **Hang** stecken nicht mehr halb im Boden: Die **Schule Sisseln** steht jetzt ganz da, und wo ein Gebäude doch unter dem Boden liegt, gibt es keine **unsichtbare Wand** mehr.

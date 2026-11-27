@@ -266,3 +266,17 @@ def test_bed_content_is_instanced_and_drawn_only_under_the_surface(server):
     assert "weed" not in roles, roles
     assert dry["bed"]["stones"] == dry["stones"] and 3 * dry["weeds"] <= dry["bed"]["blades"] <= 5 * dry["weeds"], dry
     assert dry["bed"]["visible"] is False and wet["bed"]["visible"] is True, (dry["bed"], wet["bed"])
+
+
+def test_nitro_works_on_the_bed_and_shows_its_flames(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        plain = page.evaluate("([x, z]) => window.__mm.sim(x, z, 0, 0, 6, ['KeyW'])", list(MID_RHINE))
+        boost = page.evaluate("([x, z]) => window.__mm.sim(x, z, 0, 0, 6, ['KeyW', 'KeyN'])", list(MID_RHINE))
+        flames = page.evaluate("() => { window.__mm.step(0.1, ['KeyW', 'KeyN']); return window.__mm.flames().flames.map(f => f.visible); }")   # one call: the next live frame has N released
+        c = car(page)
+        b.close()
+    assert c["submerged"] is True, c
+    assert boost["speed"] > plain["speed"] * 1.15, (plain, boost)   # nitro lifts the underwater top speed too
+    assert flames and all(flames), flames                            # you see your own flames down there
