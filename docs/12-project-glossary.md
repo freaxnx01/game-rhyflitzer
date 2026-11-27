@@ -6,6 +6,8 @@ The names this project uses for its own places, features, data and workflow: the
 
 **Rhyflitzer – Map Madness**: the game's title (start screen, browser tab, GamesHub card); Rhyflitzer is the title, Map Madness the subtitle. The repository is called `game-rhyflitzer`.
 
+**Mashup**: what kind of game this is, in two senses. A **genre mashup**: open-world driving through a real region, arcade modes (race, delivery, multiplayer), sightseeing and history (viewpoints, the 1952 layer) and a fantasy part (the *hideout*) in one world. A **data mashup**: the world is built from several open sources: OpenStreetMap for roads, buildings and land use, swisstopo for terrain and Swiss landmarks, Sketchfab models for vehicles. It mixes genres, not other games: it takes no characters, levels or look from any existing game.
+
 **Region**: a playable map with its own world and terrain file (`regions.js`). **Hochrhein** is the default; **Ehrendingen** is the second (`?region=ehrendingen`). The region editor builds further ones (see *Generated world*).
 
 **Gemeinde**: a municipality, Swiss or German. The J list filters by Gemeinde, **G** shows their boundaries, and the big village names mark them.
