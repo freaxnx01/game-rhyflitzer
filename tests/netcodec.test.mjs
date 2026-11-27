@@ -1,13 +1,13 @@
 // #834: connection codes and lobby messages. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash, CP_MAX } from '../netcodec.js';
+import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash, CP_MAX, COURSE_WIRE_MAX } from '../netcodec.js';
 
 const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.repeat(8);
 
 test('encodeCode_hostOffer_roundTripsWithRegion', async () => {
   const c = await encodeCode('H', SDP, 'hochrhein', 1000);
-  assert.match(c, /^R4H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
+  assert.match(c, /^R5H\.[A-Za-z0-9_-]+$/); assert.ok(c.length < SDP.length);
   assert.deepEqual(await decodeCode(c, 'H', 1010), { ok: true, t: 1000, g: 'hochrhein', sdp: SDP });
 });
 
@@ -24,14 +24,14 @@ test('encodeCode_noDeflateStream_null', async () => {
 test('decodeCode_wrongRoleVersionOrAge_namedError', async () => {
   const g = await encodeCode('G', SDP, null, 1000), h = await encodeCode('H', SDP, 'hochrhein', 1000);
   assert.equal((await decodeCode(g, 'H', 1000)).error, 'role'); assert.equal((await decodeCode(g, 'G', 1000)).ok, true);
-  assert.equal((await decodeCode(h.replace(/^R4/, 'R5'), 'H', 1000)).error, 'version');
+  assert.equal((await decodeCode(h.replace(/^R5/, 'R6'), 'H', 1000)).error, 'version');
   assert.equal(CODE_TTL, 600);
   assert.equal((await decodeCode(h, 'H', 1601)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 939)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 1600)).ok, true);
 });
 
 test('decodeCode_garbageOrHuge_formatOrSize', async () => {
-  for (const g of ['', 'hello', 'R4H.', 'R4H.!!!!', 'R4H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
-  assert.equal((await decodeCode('R4H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
+  for (const g of ['', 'hello', 'R5H.', 'R5H.!!!!', 'R5H.' + btoa('not deflate')]) assert.equal((await decodeCode(g, 'H', 0)).error, 'format', g);
+  assert.equal((await decodeCode('R5H.' + 'A'.repeat(16001), 'H', 0)).error, 'size');
 });
 
 const CTX = { carIds: new Set(['compact', 'bus']), paintIds: new Set(['navy', 'signal']), regions: new Set(['hochrhein', 'ehrendingen']) };
@@ -158,24 +158,38 @@ test('parseMessage_knockWithProp_validated', () => {
 });
 
 test('joinLinkFor_readJoinHash_roundTrip', () => {
-  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R4H.abc-_XYZ');
-  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R4H.abc-_XYZ');
-  assert.equal(readJoinHash(new URL(link).hash), 'R4H.abc-_XYZ');
+  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R5H.abc-_XYZ');
+  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R5H.abc-_XYZ');
+  assert.equal(readJoinHash(new URL(link).hash), 'R5H.abc-_XYZ');
 });
 
 test('readJoinHash_noJoinOrEmpty_null', () => {
-  for (const h of ['', '#', '#join=', '#join=   ', '#other=R4H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
+  for (const h of ['', '#', '#join=', '#join=   ', '#other=R5H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
 });
 
 // #837 part a: the race messages — start race (t0, now), cp, finish, cpno, back, and the board.
 test('parseMessage_raceMessages', () => {
-  assert.deepEqual(P({ type: 'start', mode: 'race', t0: 5000, now: 1000 }), { type: 'start', mode: 'race', t0: 5000, now: 1000 });
-  assert.equal(P({ type: 'start', mode: 'race', t0: 'x', now: 1 }), null);
+  assert.deepEqual(P({ type: 'start', mode: 'race', t0: 5000, now: 1000, course: 2 }), { type: 'start', mode: 'race', t0: 5000, now: 1000, course: 2 });
+  assert.deepEqual(P({ type: 'start', mode: 'race', t0: 5000, now: 1000, seed: 4294967295 }), { type: 'start', mode: 'race', t0: 5000, now: 1000, seed: 4294967295 });
+  assert.equal(P({ type: 'start', mode: 'race', t0: 'x', now: 1, course: 0 }), null);
   assert.deepEqual(P({ type: 'cp', i: 2, t: 4100 }), { type: 'cp', i: 2, t: 4100 });
   for (const bad of [{ i: 16, t: 1 }, { i: 1.5, t: 1 }, { i: 0, t: -1 }, { i: 0, t: 3600001 }]) assert.equal(P({ type: 'cp', ...bad }), null);
   assert.deepEqual(P({ type: 'finish', t: 9 }), { type: 'finish', t: 9 });
   assert.deepEqual(P({ type: 'cpno', i: -1 }), { type: 'cpno', i: -1 });
   assert.deepEqual(P({ type: 'back', x: 1 }), { type: 'back' });
+});
+
+// #1117: a race start names the course -- an index into the rotation or a seed for the random draw, exactly one
+test('parseMessage_raceStart_courseOrSeed', () => {
+  assert.equal(COURSE_WIRE_MAX, 7);
+  const base = { type: 'start', mode: 'race', t0: 5000, now: 1000 };
+  assert.equal(P(base), null);                                               // neither
+  assert.equal(P({ ...base, course: 1, seed: 5 }), null);                    // both
+  for (const course of [-1, 8, 1.5, '1', null]) assert.equal(P({ ...base, course }), null, String(course));
+  for (const seed of [-1, 4294967296, 2.5, '7', null]) assert.equal(P({ ...base, seed }), null, String(seed));
+  assert.deepEqual(P({ ...base, course: 0 }), { ...base, course: 0 });
+  assert.deepEqual(P({ ...base, seed: 0 }), { ...base, seed: 0 });
+  assert.deepEqual(P({ type: 'start', mode: 'cruise', course: 3 }), { type: 'start', mode: 'cruise' });   // a cruise ignores it
 });
 test('parseMessage_board', () => {
   const row = { id: 0, name: 'A', times: [1, 2], st: 'run' };
