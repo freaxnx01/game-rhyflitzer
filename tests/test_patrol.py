@@ -55,3 +55,22 @@ def test_review_prompt_names_the_format_and_forbids_filing():
     assert "manifest.json" in text and "findings.md" in text and "sheet-02.jpg" in text
     assert "Do not file issues" in text
     assert "(sheet - 1) * 16 + tile" in text
+
+
+WORLD = Path(__file__).parents[1] / "data" / "world_hochrhein.json"
+
+
+def test_patrol_writes_frames_manifest_video_sheets_and_review(tmp_path):
+    """Slow: loads the OSM world. Foreground only."""
+    if not WORLD.exists() or patrol.shutil.which("ffmpeg") is None:
+        pytest.skip("needs the OSM world and ffmpeg")
+    rc = patrol.main(["--route", "sisseln-eiken", "--out", str(tmp_path), "--limit", "3", "--size", "640x360"])
+    assert rc == 0
+    assert sorted(p.name for p in (tmp_path / "frames").iterdir()) == ["f-0001.png", "f-0002.png", "f-0003.png"]
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert [m["i"] for m in manifest] == [1, 2, 3]
+    assert all(m["E"] is not None and m["N"] is not None for m in manifest)
+    assert math.hypot(manifest[1]["x"] - manifest[0]["x"], manifest[1]["z"] - manifest[0]["z"]) == pytest.approx(25, abs=0.5)
+    assert (tmp_path / "patrol.mp4").stat().st_size > 0
+    assert (tmp_path / "sheet-01.jpg").exists()
+    assert "sheet-01.jpg" in (tmp_path / "review.md").read_text(encoding="utf-8")
