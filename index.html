@@ -1090,7 +1090,7 @@ import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFi
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { openRelay, normalizeRoom } from './relayclient.js';   // #1198: one room code for everyone, through our own signaling relay
-import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps, knockAllowed, pontoonAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); #1190: pontoonAllowed, the host's lay/take gate; netClockOffset: ferrisride.js already owns `clockOffset`
+import { FLAG, hearGain, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, tagOpacity, fadeAlpha, remoteLamps, knockAllowed, pontoonAllowed } from './netsync.js';   // #835: the clock, the pose track and the start column (#1112: hearGain — the remote horn/knock falloff); #1190: pontoonAllowed, the host's lay/take gate; netClockOffset: ferrisride.js already owns `clockOffset`
 import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, BUMP_DY, HIT_WINDOW } from './netbump.js';   // #836: car-to-car contact in a shared drive
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
@@ -7735,7 +7735,7 @@ function buildNetCar(entry) {
 function netTag(name) {
   const map = makeTex(256, 64, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = 'rgba(20,23,29,.82)';
+    g.fillStyle = 'rgba(20,23,29,.6)';
     const r = 14; g.beginPath(); g.moveTo(r, 4); g.arcTo(w - 4, 4, w - 4, h - 4, r); g.arcTo(w - 4, h - 4, 4, h - 4, r); g.arcTo(4, h - 4, 4, 4, r); g.arcTo(4, 4, w - 4, 4, r); g.fill();
     g.fillStyle = '#f3ead4'; g.font = 'bold 34px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, w / 2, h / 2 + 1);
   }, { alpha: true });
@@ -7823,9 +7823,10 @@ function stepNetCars() {
     entry.horning = horning;
     if (entry.tag) {
       const tx = pose.x, ty = pose.y + entry.roof + 1.2, tz = pose.z;
-      const s = tagScale(camera.position.distanceTo(new THREE.Vector3(tx, ty, tz)));
+      const d = camera.position.distanceTo(new THREE.Vector3(tx, ty, tz)), s = tagScale(d);
       entry.tag.position.set(tx, ty, tz);
       entry.tag.scale.set(s * 4, s, 1);
+      entry.tag.material.opacity = tagOpacity(d);
     }
   }
 }

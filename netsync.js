@@ -147,9 +147,14 @@ export function fadeAlpha(ms) {
 }
 
 // tagScale(d) — the world size of a name tag so its on-screen size stays ~constant: it grows with distance, clamped
-// between 10 and 400 m so it never crowds a near car nor fills the screen far away. A query: pure.
+// between 3 and 400 m so it does not swell over a car right next to you nor fill the screen far away. A query: pure.
 export function tagScale(d) {
-  return clamp(d, 10, 400) * 0.06;
+  return clamp(d, 3, 400) * 0.06;
+}
+
+// tagOpacity(d) — a near tag turns see-through so the car under it stays visible: 0.35 up to 6 m, solid from 30 m. A query: pure.
+export function tagOpacity(d) {
+  return 0.35 + 0.65 * (clamp(d, 6, 30) - 6) / 24;
 }
 
 // remoteLamps(flags, flashOn) — reads the pose flag bits back into per-lamp on/off states. The blinkers flash on the
