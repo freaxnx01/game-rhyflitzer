@@ -4,7 +4,7 @@ only there). Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
 from conftest import start_ready
-from test_multiplayer_cruise import pair_world_fixture, ready_both  # noqa: F401  (fixture)
+from test_multiplayer_cruise import pair_fixture, ready_both  # noqa: F401  (fixture)
 from test_multiplayer_lobby import connect
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"]
@@ -14,6 +14,8 @@ T = 120000
 def open_world(p, server):
     b = p.chromium.launch(args=ARGS)
     page = b.new_context(viewport={"width": 1280, "height": 720}, locale="de-CH").new_page()
+    page.set_default_timeout(T)
+    page.set_default_navigation_timeout(600000)   # a reload builds the whole OSM world again
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/data/terrain_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))
@@ -88,15 +90,17 @@ def test_random_switch_draws_a_seeded_course_without_best(server):
     assert errors == []
 
 
-def test_multiplayer_guest_races_the_host_course(pair_world):
-    host, guest, errors = pair_world
-    host.evaluate("() => localStorage.setItem('mm.courseIdx.hochrhein', '0')")   # the host's next course is Eiken
+def test_multiplayer_guest_races_the_host_course(pair):
+    """The host names the course in its `start` message and the guest races that one. On the lobby pair's
+    hand-traced world the rotation has only course 1 (the four extra courses are OSM-only), so what this proves is
+    the wiring: a start that did not name its course is refused by parseStart, and the guest would never race."""
+    host, guest, errors = pair
     connect(host, guest)
     ready_both(host, guest)
     host.click("#mprace")
     for page in (host, guest):
         page.wait_for_function("() => window.__mm.net().race", timeout=T)
     h, g = course(host), course(guest)
-    assert h["id"] == g["id"] == "eiken"
+    assert h["id"] == g["id"] == "classic" and h["idx"] == g["idx"] == 0
     assert h["cps"] == g["cps"] and h["finish"] == g["finish"]
     assert errors == []
