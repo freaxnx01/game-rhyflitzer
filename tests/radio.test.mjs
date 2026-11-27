@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, FM, isFm, stationOrder, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, RADIO_STORE, nextTrack, prevTrack, shuffleOnFrom, playlistOrder, stepVolume, trackGain, menuGain,
+import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, FM, isFm, stationOrder, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, RADIO_STORE, nextTrack, prevTrack, stepPos, shuffleOnFrom, playlistOrder, stepVolume, trackGain, menuGain,
   radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, stationName, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
 
 const key = (code, o = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...o });
@@ -43,6 +43,20 @@ test('radioKeyAction_Repeat_OnlyVolumeRepeats', () => {
   assert.equal(radioKeyAction(key('Digit9', { repeat: true })), 'down');
   assert.equal(radioKeyAction(key('Digit0', { repeat: true })), 'up');
   for (const c of ['Digit5', 'Digit6', 'Digit7', 'Digit8']) assert.equal(radioKeyAction(key(c, { repeat: true })), 'ignore', c);
+});
+
+test('stepPos_StationShorterThanTracks_WrapsAtItsOwnLength', () => {
+  for (const station of ['mix', 'rock', 'cruise']) {
+    for (const shuffle of [false, true]) {
+      const first = FM[station].tracks[0];
+      const order = stationOrder(station, shuffle, first, () => 0.5);
+      const last = order.length - 1;
+      assert.equal(order[stepPos(last, 1, order.length)], order[0], `${station} shuffle=${shuffle}: next wraps last->first`);
+      assert.equal(order[stepPos(0, -1, order.length)], order[last], `${station} shuffle=${shuffle}: prev wraps first->last`);
+      assert.equal(stepPos(1, 1, order.length), order.length > 2 ? 2 : 0);
+      assert.equal(stepPos(1, -1, order.length), 0);
+    }
+  }
 });
 
 test('nextTrack_prevTrack_Wrap', () => {
