@@ -101,14 +101,16 @@ export function nearestOnPolyline(pts, x, z) {
   }
   return best;
 }
-export function offsetPolyline(pts, d) {
-  const n = pts.length, out = [];
+export function offsetPolyline(pts, d) {   // d: metres, or (#1231) d(arc length, vertex, its unit normal)
+  const n = pts.length, out = []; let s = 0;
   const nrm = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [-dz / l, dx / l]; };
   for (let i = 0; i < n; i++) {
     const a = i > 0 ? nrm(pts[i - 1], pts[i]) : null, b = i < n - 1 ? nrm(pts[i], pts[i + 1]) : null;
     let m = a && b ? [a[0] + b[0], a[1] + b[1]] : (a || b); const l = Math.hypot(m[0], m[1]) || 1; m = [m[0] / l, m[1] / l];
     const k = a && b ? 1 / Math.max(0.35, m[0] * a[0] + m[1] * a[1]) : 1;
-    out.push([pts[i][0] + m[0] * d * k, pts[i][1] + m[1] * d * k].map(v => Math.round(v * 1000) / 1000 + 0));   // +d = right of travel (x east, z south)
+    if (i > 0) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    const dd = typeof d === 'function' ? d(s, pts[i], m) : d;
+    out.push([pts[i][0] + m[0] * dd * k, pts[i][1] + m[1] * dd * k].map(v => Math.round(v * 1000) / 1000 + 0));   // +d = right of travel (x east, z south)
   }
   return out;
 }
@@ -869,12 +871,53 @@ export const MARK = {
   cycle: { dash: 3, gap: 3, w: 0.15, color: 'yellow', inset: 1.3 },
 };
 // One-sided cycle lanes also get a white centre line (pipeline contract). Order: left yellow, right yellow, centre.
-export function markLines(r) {
-  const out = [], e = r.w / 2 - MARK.cycle.inset;
+// clip(p, nx, nz, t) -> { l, r } (#1231): the drawn reach either side, as the road ribbon's clip (a paired carriageway's
+// share of the gap, a narrowing way's half width); the cycle lines keep their inset from the drawn edge
+export function markLines(r, clip = null) {
+  const out = [], hw = r.w / 2, line = clip ? densify(r.pts, 2) : r.pts;
+  const edge = (side, sign) => clip ? (t, p, n) => sign * Math.max(0, Math.min(hw, clip(p, n[0], n[1], t)[side]) - MARK.cycle.inset) : sign * (hw - MARK.cycle.inset);
   if (r.mark === 'centre' || r.mark === 'centre-solid') out.push({ pts: r.pts, spec: MARK[r.mark] });
-  if (r.mark === 'cycle' || r.mark === 'cycle-left') out.push({ pts: offsetPolyline(r.pts, -e), spec: MARK.cycle });
-  if (r.mark === 'cycle' || r.mark === 'cycle-right') out.push({ pts: offsetPolyline(r.pts, e), spec: MARK.cycle });
+  if (r.mark === 'cycle' || r.mark === 'cycle-left') out.push({ pts: offsetPolyline(line, edge('l', -1)), spec: MARK.cycle });
+  if (r.mark === 'cycle' || r.mark === 'cycle-right') out.push({ pts: offsetPolyline(line, edge('r', 1)), spec: MARK.cycle });
   if (r.mark === 'cycle-left' || r.mark === 'cycle-right') out.push({ pts: r.pts, spec: MARK.centre });
+  return out;
+}
+
+// #1231: OSM changes a street's width abruptly from one way to the next (the Zürcherstrasse at Stein: 9 m with two lanes
+// before the junction, 4.5 m after), so its edges and cycle lines jumped sideways at the joint. The wider way narrows
+// to its one same-name continuation over TAPER.len metres (at most half its length), where the step is TAPER.step or more.
+export const TAPER = { len: 20, step: 1 };
+// road -> [width at its start, width at its end] it narrows to (null: no taper there); only roads that taper are listed
+export function taperEnds(roads) {
+  const named = roads.filter((r) => !r.bridge && r.n), out = new Map(), cell = (p) => `${Math.round(p[0])},${Math.round(p[1])}`, byCell = new Map();
+  for (const r of named) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) { const k = cell(p); if (!byCell.has(k)) byCell.set(k, []); byCell.get(k).push([r, p]); }
+  const near = (p) => { const out = []; for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const e of byCell.get(cell([p[0] + dx, p[1] + dz])) || []) if (Math.hypot(e[1][0] - p[0], e[1][1] - p[1]) <= 0.5) out.push(e[0]); return out; };
+  for (const r of named) {
+    const ends = [r.pts[0], r.pts[r.pts.length - 1]].map((p) => {
+      const ws = near(p).filter((o) => o !== r && o.n === r.n).map((o) => o.w);
+      const w = ws.length === 1 ? ws[0] : null;   // two same-name ways there: the street splits into its carriageways
+      return w !== null && r.w - w >= TAPER.step ? w : null;
+    });
+    if (ends[0] !== null || ends[1] !== null) out.set(r, ends);
+  }
+  return out;
+}
+// r's drawn half width at arc length t: its own, narrowed linearly to a tapered end's over TAPER.len (or half its length)
+export function taperHalfWidth(r, ends, t) {
+  const e = ends.get(r), hw = r.w / 2; if (!e) return hw;
+  const len = polylineLength(r.pts), span = Math.min(TAPER.len, len / 2);
+  let h = hw;
+  for (const [w, d] of [[e[0], t], [e[1], len - t]]) if (w !== null) h = Math.min(h, w / 2 + (hw - w / 2) * Math.min(1, Math.max(0, d) / span));
+  return h;
+}
+// pts with a point every `step` metres along each segment; the vertices stay
+export function densify(pts, step) {
+  const out = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0);
+    for (let s = step; s < L - 1e-9; s += step) out.push([x0 + (x1 - x0) * s / L, z0 + (z1 - z0) * s / L]);
+    out.push(pts[i + 1]);
+  }
   return out;
 }
 
