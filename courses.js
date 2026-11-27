@@ -38,3 +38,50 @@ export function courseBestKey(baseKey, id) {
   if (id === 'random') return null;
   return id === 'classic' ? baseKey : `${baseKey}.${id}`;
 }
+
+// the random draw (#1117): within `radius` m of the start, `minGap` m apart, length lo..hi x course 1's
+export const RANDOM = Object.freeze({ radius: 4000, minGap: 300, lo: 0.75, hi: 1.25, tries: 200 });
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+// the length in the order the arrow guides: always the nearest open checkpoint (stepRace), then the finish
+export function nearestFirstLength(start, cps, finish, legLen) {
+  let cur = start, total = 0;
+  const left = [...cps];
+  while (left.length) {
+    let k = 0;
+    for (let i = 1; i < left.length; i++) if (dist(cur, left[i]) < dist(cur, left[k])) k = i;
+    const next = left.splice(k, 1)[0];
+    total += legLen(cur, next);
+    cur = next;
+  }
+  return total + legLen(cur, finish);
+}
+
+function shuffled(list, rng) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+}
+
+function sixApart(points, start) {
+  const six = [];
+  for (const q of points) {
+    if (dist(q, start) > RANDOM.radius || six.some((s) => dist(s, q) < RANDOM.minGap)) continue;
+    six.push(q);
+    if (six.length === 6) return six;
+  }
+  return null;
+}
+
+// deterministic for a given pool order and rng: the same seed gives every device the same course
+export function randomCourse(pool, start, rng, legLen, ref) {
+  for (let t = 0; t < RANDOM.tries; t++) {
+    const six = sixApart(shuffled(pool, rng), start);
+    if (!six) return null;
+    const cps = six.slice(0, 5).map(({ n, x, z }) => ({ n, x, z })), finish = (({ n, x, z }) => ({ n, x, z }))(six[5]);
+    const len = nearestFirstLength(start, cps, finish, legLen);
+    if (len >= RANDOM.lo * ref && len <= RANDOM.hi * ref) return { id: 'random', key: 'courseRandom', cps, finish };
+  }
+  return null;
+}
