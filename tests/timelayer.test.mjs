@@ -33,6 +33,8 @@ test('strings: era texts exist in en and de', () => {
   for (const lang of ['en', 'de']) for (const k of ['eraOn', 'eraOff', 'eraNone', 'eraNoDelivery', 'eraRoadGone', 'keyEra', 'aboutGwr', 'aboutHist']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
   assert.match(translate('en', 'eraOn'), /Ctrl\+Y/);
   assert.match(translate('de', 'eraOn'), /Ctrl\+Y/);
+  assert.match(translate('en', 'eraOn'), /Ctrl\+B/);   // feedback 2026-11-27: the 1952 notice points to black and white
+  assert.match(translate('de', 'eraOn'), /Ctrl\+B/);
 });
 
 test('roadGoneAt: gone only when every road under the point is modern', () => {
