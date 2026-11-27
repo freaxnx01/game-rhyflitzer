@@ -1119,6 +1119,7 @@ import { PAINTS, paintFinish, selectableIds, STAT_KEYS, STAT_LABEL_KEYS, statBar
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, isRoutable, TAKE_OVER_KEYS } from './route.js';
+import { SCAN, triangleIndex, topAt, roadProbes, scanProbes, clusterSpots } from './groundscan.js';   // #1248
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey, thankDue, markThanked } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from './busstop.js';   // #712
 import { poleTop, signPanelZ, POLE_R, FACE_GAP } from './signpole.js';   // #822
@@ -6272,6 +6273,27 @@ window.__mm.grassOverRoad = (pct = 10, only = null) => {
     [271, 417.74], [274, 417.89], [277, 418.05], [280, 418.2], [283, 418.35], [286, 418.5]] : [], spots = [];
   for (const [x, z] of GRASS_SPOTS) { const p = probe(x, z); if (p) spots.push({ at: [x, z], d: p.d, marksBelow: p.marksBelow }); }
   return { worst, bad, done, marksSeen, marksBelow, spots };
+};
+// #1248: the whole-map road-vs-ground scan. A vertical ray only needs the triangles under (x, z), so groundscan.js answers
+// it from a 2D grid over each role's CPU positions (#323) instead of the Raycaster, which tests every merged triangle.
+function worldPositions(mesh) {
+  mesh.updateMatrixWorld(true);
+  const pos = mesh.geometry.attributes.position.array;
+  if (mesh.matrixWorld.equals(new THREE.Matrix4())) return pos;
+  const v = new THREE.Vector3(), out = new Float32Array(pos.length);
+  for (let i = 0; i < pos.length; i += 3) { v.set(pos[i], pos[i + 1], pos[i + 2]).applyMatrix4(mesh.matrixWorld); out[i] = v.x; out[i + 1] = v.y; out[i + 2] = v.z; }
+  return out;
+}
+function rolesTopAt(roles) {
+  const indexes = roles.filter((r) => MESH[r]).map((r) => triangleIndex(worldPositions(MESH[r]), MESH[r].geometry.index?.array ?? null));
+  return (x, z) => indexes.reduce((top, i) => { const y = topAt(i, x, z); return y !== null && (top === null || y > top) ? y : top; }, null);
+}
+window.__mm.indexTop = (roles, points) => { const at = rolesTopAt(roles); return points.map(([x, z]) => at(x, z)); };
+window.__mm.roadScan = (step = SCAN.step) => {
+  const t0 = performance.now(), roadAt = rolesTopAt(['road', 'roadOsm', 'motorway']), greenAt = rolesTopAt(['grass', 'field', 'meadow']);
+  const probes = roadProbes(ROADS, step), res = scanProbes(probes, roadAt, greenAt);
+  const spots = clusterSpots(res.spots).map((s) => { const p = debugPosition(L && L.origin, s.x, s.z); return { ...s, E: p.E ?? null, N: p.N ?? null }; });
+  return { ms: performance.now() - t0, probes: probes.length, done: res.done, worst: res.worst, spots };
 };
 window.__mm.roadDist = () => roadDist(P.x, P.z);
 // #127: is the car on a gravel trail (the Wanderweg)? the nearest road piece in ROAD_GRID, by its centre line
