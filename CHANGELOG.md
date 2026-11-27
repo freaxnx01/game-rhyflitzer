@@ -26,6 +26,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-27 15:33` Jedes neue **Rennen** fährt eine andere **Strecke**: fünf Strecken im Wechsel, vom **Klassiker** bis zum **Bergsee**, und in den **Einstellungen** auf Wunsch eine **zufällige**. Die Bestzeit zählt pro Strecke, und im Mehrspieler-Rennen fahren alle die Strecke des Gastgebers.
 - `2026-11-25 21:11` Im **Mehrspieler** genügt jetzt ein **Raumcode** wie `RHY-4827` für alle: Der Gastgeber nennt ihn, die Freunde tippen ihn ein und sind verbunden. Ist der **Vermittler** nicht erreichbar, geht es wie bisher über **Ohne Server verbinden**.
 - `2026-11-25 19:20` Im **Mehrspieler** sehen jetzt alle Spieler die **Pontonbrücke** (<kbd>U</kbd>) und können darüber fahren. Jeder darf sie legen oder wieder entfernen — auch wenn gerade jemand darauf fährt.
 - `2026-11-25 15:54` Im **Mehrspieler** fällt ein Objekt, das ein anderer Spieler **umfährt**, jetzt auch bei Dir um und steht später wieder auf.
