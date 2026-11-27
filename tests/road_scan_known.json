@@ -1,1 +1,219 @@
-[]
+[
+ {
+  "x": -264.3,
+  "z": 1059.2,
+  "n": "Hauptstrasse",
+  "d": 0.664,
+  "issue": null
+ },
+ {
+  "x": -123.2,
+  "z": 1067.3,
+  "n": "Rohrmatt",
+  "d": 0.559,
+  "issue": null
+ },
+ {
+  "x": -2298.9,
+  "z": -2.9,
+  "n": "Fricktalstraße",
+  "d": 0.442,
+  "issue": null
+ },
+ {
+  "x": 1546.8,
+  "z": 469.9,
+  "n": "Laufenburgerstrasse",
+  "d": 0.408,
+  "issue": null
+ },
+ {
+  "x": -4011.8,
+  "z": 523.4,
+  "n": "Bahnhofstrasse",
+  "d": 0.405,
+  "issue": null
+ },
+ {
+  "x": 2314.2,
+  "z": 2603.0,
+  "n": "Hauptstrasse",
+  "d": 0.375,
+  "issue": null
+ },
+ {
+  "x": -4687.6,
+  "z": 9.7,
+  "n": "Wolftürlistrasse",
+  "d": 0.368,
+  "issue": null
+ },
+ {
+  "x": 1520.4,
+  "z": 1759.9,
+  "n": "Dammstrasse",
+  "d": 0.329,
+  "issue": null
+ },
+ {
+  "x": 2916.0,
+  "z": 3295.9,
+  "n": "",
+  "d": 0.297,
+  "issue": null
+ },
+ {
+  "x": 1556.3,
+  "z": 713.4,
+  "n": "Laufenburgerstrasse",
+  "d": 0.295,
+  "issue": null
+ },
+ {
+  "x": -3397.1,
+  "z": 824.5,
+  "n": "Ankengasse",
+  "d": 0.28,
+  "issue": null
+ },
+ {
+  "x": 4264.2,
+  "z": 4411.4,
+  "n": "Oeschgerstrasse",
+  "d": 0.252,
+  "issue": null
+ },
+ {
+  "x": -4688.6,
+  "z": 4762.8,
+  "n": "",
+  "d": 0.191,
+  "issue": null
+ },
+ {
+  "x": -4686.6,
+  "z": -1439.9,
+  "n": "Alter Forstweg",
+  "d": 0.191,
+  "issue": null
+ },
+ {
+  "x": -693.6,
+  "z": 1049.4,
+  "n": "Zürcherstrasse",
+  "d": 0.155,
+  "issue": null
+ },
+ {
+  "x": 2473.6,
+  "z": 2692.5,
+  "n": "Hauptstrasse",
+  "d": 0.153,
+  "issue": null
+ },
+ {
+  "x": 1564.5,
+  "z": 555.0,
+  "n": "Laufenburgerstrasse",
+  "d": 0.12,
+  "issue": null
+ },
+ {
+  "x": 3288.3,
+  "z": 5227.6,
+  "n": "Dammstrasse",
+  "d": 0.113,
+  "issue": null
+ },
+ {
+  "x": -4686.6,
+  "z": 102.7,
+  "n": "Bahnhofstrasse",
+  "d": 0.108,
+  "issue": null
+ },
+ {
+  "x": 1589.5,
+  "z": 1740.6,
+  "n": "Laufenburgerstrasse",
+  "d": 0.101,
+  "issue": null
+ },
+ {
+  "x": -693.4,
+  "z": 1046.6,
+  "n": "",
+  "d": 0.092,
+  "issue": null
+ },
+ {
+  "x": 2791.3,
+  "z": 3178.5,
+  "n": "",
+  "d": 0.078,
+  "issue": null
+ },
+ {
+  "x": -2229.8,
+  "z": 119.4,
+  "n": "Fricktalstraße",
+  "d": 0.075,
+  "issue": null
+ },
+ {
+  "x": -123.8,
+  "z": 1144.8,
+  "n": "Hauptstrasse",
+  "d": 0.059,
+  "issue": null
+ },
+ {
+  "x": -2300.3,
+  "z": -92.6,
+  "n": "Hebelweg",
+  "d": 0.042,
+  "issue": null
+ },
+ {
+  "x": 1542.4,
+  "z": 1879.4,
+  "n": "Laufenburgerstrasse",
+  "d": 0.037,
+  "issue": null
+ },
+ {
+  "x": 2468.9,
+  "z": 2678.7,
+  "n": "Hauptstrasse",
+  "d": 0.034,
+  "issue": null
+ },
+ {
+  "x": 1511.7,
+  "z": 376.7,
+  "n": "Laufenburgerstrasse",
+  "d": 0.03,
+  "issue": null
+ },
+ {
+  "x": 1574.5,
+  "z": 594.6,
+  "n": "Laufenburgerstrasse",
+  "d": 0.015,
+  "issue": null
+ },
+ {
+  "x": 4360.1,
+  "z": 4413.2,
+  "n": "Kaistenbergstrasse",
+  "d": 0.013,
+  "issue": null
+ },
+ {
+  "x": 3202.2,
+  "z": 5346.8,
+  "n": "Landstrasse",
+  "d": 0.012,
+  "issue": null
+ }
+]

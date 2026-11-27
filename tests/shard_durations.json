@@ -103,6 +103,7 @@
   "test_rally_model.py": 7.0,
   "test_record.py": 7.22,
   "test_region.py": 19.52,
+  "test_road_scan.py": 24.8,
   "test_row_houses.py": 21.39,
   "test_select_tests.py": 0.05,
   "test_settings.py": 7.13,
