@@ -83,6 +83,7 @@
   "test_nightly_report.py": 0.05,
   "test_on_foot.py": 6.58,
   "test_ostriches.py": 25.94,
+  "test_patrol.py": 30.5,
   "test_pause.py": 6.12,
   "test_phone_hud.py": 5.58,
   "test_photo.py": 6.74,

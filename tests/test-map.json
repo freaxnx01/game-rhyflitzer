@@ -69,5 +69,8 @@
   "docs/gallery/shots.json": ["test_shots.py"],
   "groundscan.js": ["test_road_scan.py"],
   "tests/road_scan_report.py": ["test_road_scan_report.py", "test_road_scan.py"],
-  "tests/road_scan_known.json": ["test_road_scan.py"]
+  "tests/road_scan_known.json": ["test_road_scan.py"],
+  "scripts/patrol.py": ["test_patrol.py"],
+  "scripts/patrol_routes.json": ["test_patrol.py"],
+  ".claude/commands/patrol.md": ["test_patrol.py"]
 }
