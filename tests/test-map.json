@@ -66,5 +66,8 @@
   "pipeline/osm_read.py": ["test_suedspange.py"],
   "tests/test_vehicles.py": ["test_car_look.py", "test_shadow.py", "test_sound.py", "test_wheels.py"],
   "scripts/shots.py": ["test_shots.py"],
-  "docs/gallery/shots.json": ["test_shots.py"]
+  "docs/gallery/shots.json": ["test_shots.py"],
+  "groundscan.js": ["test_road_scan.py"],
+  "tests/road_scan_report.py": ["test_road_scan_report.py", "test_road_scan.py"],
+  "tests/road_scan_known.json": ["test_road_scan.py"]
 }
