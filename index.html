@@ -919,6 +919,12 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <p class="st-cap" data-i18n="setHintsCap">short tips while you drive, each one only once</p>
         <p id="sethintsresetcap" class="st-cap"></p></div>
     </section>
+    <!-- #1117: the race course -- the five courses in turn, or a random one -->
+    <section class="st-sec"><h2 data-i18n="setRace">Race</h2>
+      <div class="st-row"><span class="st-label" id="setcourselabel" data-i18n="setCourse">Course</span>
+        <select id="setcourse" class="btn small" aria-labelledby="setcourselabel"></select>
+        <p class="st-cap" data-i18n="setCourseCap">every new race takes the next course, or one drawn at random</p></div>
+    </section>
   </div>
   <p class="ab-foot"><span data-i18n="setHint">Esc: back</span></p>
 </div>
@@ -6575,6 +6581,7 @@ function toastCourse() { if (courseShown()) toastHtml(tr('courseToast', esc(tr(C
 function courseIntro() { const next = peekCourse(); if (!next) return tr('introCourseRandom'); return next.id === 'classic' ? tr(REGION.strings.intro) : tr('introCourse', tr(next.key), next.finish.n); }
 function courseFinished() { return !COURSE.cur || COURSE.cur.id === 'classic' ? tr(REGION.strings.finished) : tr('finishedCourse', COURSE.cur.finish.n); }
 function courseNextText() { const next = peekCourse(); return next ? tr('courseNext', tr(next.key)) : tr('courseNextRandom'); }
+const courseWire = (c) => (c.id === 'random' ? { seed: c.seed } : { course: c.idx ?? 0 });   // #1117: what the host's race start names -- the rotation index, or the seed of its random draw
 function startRace(mode = 'trial', rng = Math.random, course = hasCheckpoints(mode) && COURSE.list.length ? pickCourse() : null) { endDelivery(); DEL.last = null;   /* #107: a race ends a running shift and clears its result */ if (RACELESS && mode !== 'cruise') mode = 'hunt'; R.mode = mode; if (course && hasCheckpoints(mode)) applyCourse(course);   /* #1117: this race's checkpoints and finish */ trackModeStart(mode); try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = hasCheckpoints(mode); } finishG.visible = false; R.done = 0; R.t = 0; resetFader(FADER); KEYBAR_FADE.sig = null;   /* #773: every plate holds its 4 s from the run start, the key bar its 30 s */ R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.era = ERA.on; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = startPose(mode); clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ leaveBelow(); /* #504: a restart in a room below kept its level */ resetCar(); camPos.set(P.x + (mode === 'tutorial' ? -12 : 12), P.y + 5, P.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); startViewRun(); startTutorialRun(); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (course && hasCheckpoints(mode)) toastCourse();   /* #1117 */ if (hunt) toast(tr('huntStart'), TOAST_S.event); if (mode === 'view') toast(tr('viewStart'), TOAST_S.event); RADIO.tick(); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'delivery' ? 'modeDelivery' : R.mode === 'tutorial' ? 'modeTutorial' : R.mode === 'cruise' ? 'modeCruise' : R.mode === 'view' ? 'modeView' : R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode; #534: the tutorial's line
@@ -6965,6 +6972,7 @@ function renderSettings() {
   const st = $('setstation'); st.replaceChildren(...STATIONS.map((k) => new Option(stationName(k, tr), k))); st.value = r.station;   // rebuilt each time: the live names follow the language
   sw('sethints', HINTS_S.on); $('sethintsresetcap').textContent = tr(HINTS_S.reset ? 'setHintsResetDone' : 'setHintsResetCap');   // #1090
   sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
+  const sc = $('setcourse'); sc.replaceChildren(new Option(tr('setCourseTurn'), 'turn'), new Option(tr('setCourseRandom'), 'random')); sc.value = courseMode();   // #1117
 }
 function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
 function closeSettings() { if (!SETTINGS.on) return; SETTINGS.on = false; $('settings').hidden = true; const back = SETTINGS.from === 'pause'; $(back ? 'pause' : 'overlay').hidden = false; $(back ? 'pausesettings' : 'settingsbtn').focus(); }
@@ -6978,8 +6986,9 @@ $('sethints').onclick = () => { setHintsOn(!HINTS_S.on); renderSettings(); };
 $('sethintsreset').onclick = () => { resetHints(); renderSettings(); };
 $('setshuffle').onclick = () => { RADIO.setShuffle(!RADIO.state().shuffle); renderSettings(); };
 $('setstation').onchange = (e) => { RADIO.setStation(e.target.value); renderSettings(); };
+$('setcourse').onchange = (e) => { try { localStorage.setItem(COURSE_STORE.mode, e.target.value); } catch (e2) { } renderSettings(); revertModeText(); };   // #1117
 $('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
-window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol, shuffle }) => ({ on, menuOn, vol, shuffle }))(RADIO.state()) });
+window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol, shuffle }) => ({ on, menuOn, vol, shuffle }))(RADIO.state()), course: courseMode() });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
 function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
 function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen
@@ -7398,7 +7407,7 @@ function netGuestMessage(msg) {
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
     if (NET.session) netEndSession();   // #837 part d: a rematch restarts the guest too
-    netStartSession(msg.mode, msg.t0 ?? null);
+    netStartSession(msg.mode, msg.t0 ?? null, msg.mode === 'race' ? courseFromWire(msg) : null);   // #1117: the host named the course
     return;
   }
   if (msg.type === 'pong') { NET.clock = addClockSample(NET.clock, msg.a, msg.b, performance.now()); NET.offset = netClockOffset(NET.clock); return; }
@@ -7641,14 +7650,14 @@ function netReopenCp(i) {
   (NET.race.cpHold ??= new Set()).add(i);   // #1184: held until the car leaves this checkpoint, like the finish (#1169)
 }
 
-function netStartSession(mode = 'cruise', t0 = null) {
+function netStartSession(mode = 'cruise', t0 = null, course = null) {
   if (NET.session) return;
   NET.session = true;
   SFX.start();                                                     // #1114: the engine voice (every single-player button does this before startRace)
   CARSEL.mp = false;
   stopCodeClock(); $('mplobby').hidden = true; $('mp').hidden = true;
   const race = mode === 'race';
-  startRace(race ? 'trial' : 'cruise');                            // #837: a race is the trial's checkpoints under NET.race
+  startRace(race ? 'trial' : 'cruise', Math.random, race ? course ?? COURSE.list[0] : null);   // #837: a race is the trial's checkpoints under NET.race; #1117: on the host's course
   NET.race = race ? { t0, shown: null, go: false } : null;
   if (race && NET.role === 'H') NET.race.state = createRace(NET.lobby, CPS.length);
   P.safe = (race ? raceGrid : gridPose)([START.x, START.z, START.th], NET.you); resetCar();
@@ -7894,9 +7903,9 @@ function netSessionPick() {
 function netRematch() {
   if (NET.role !== 'H' || !NET.lobby || NET.lobby.players.length < 2) return;
   netEndSession();
-  const now = performance.now(), t0 = now + RACE.countdown;
-  NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
-  netStartSession('race', t0);
+  const course = pickCourse(), now = performance.now(), t0 = now + RACE.countdown;
+  NET.link.broadcast({ type: 'start', mode: 'race', t0, now, ...courseWire(course) });
+  netStartSession('race', t0, course);
 }
 // #837 part d / #1110: the host takes everyone back to the lobby; the link stays, the next mode is picked there
 function netHostToLobby() {
@@ -7974,9 +7983,9 @@ $('mpready').onclick = () => { const me = NET.lobby && NET.lobby.players.find((p
 $('mpgo').onclick = () => { if (NET.role !== 'H' || !NET.lobby || !canStart(NET.lobby)) return; NET.link.broadcast({ type: 'start', mode: 'cruise' }); netStartSession(); };
 $('mprace').onclick = () => {
   if (NET.role !== 'H' || !NET.lobby || !canStart(NET.lobby)) return;
-  const now = performance.now(), t0 = now + RACE.countdown;
-  NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
-  netStartSession('race', t0);
+  const course = pickCourse(), now = performance.now(), t0 = now + RACE.countdown;
+  NET.link.broadcast({ type: 'start', mode: 'race', t0, now, ...courseWire(course) });
+  netStartSession('race', t0, course);
 };
 $('mprematch').onclick = netRematch;
 $('mpback').onclick = netHostToLobby;
