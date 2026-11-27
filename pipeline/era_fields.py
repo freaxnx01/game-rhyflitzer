@@ -26,7 +26,7 @@ from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import substring, unary_union
 
-from era_roads import _to_game
+from era_roads import SUEDSPANGE_SIGNS, _to_game
 from geo import Frame
 from world_fields import FIELD_GAP, MIN_AREA, PARKING_GAP, RAIL_GAP, SEAM, STREAM_GAP, _entry, _polys, direction
 
@@ -36,7 +36,7 @@ CROSS_MIN = 120.0   # m, strip length along it
 CROSS_MAX = 260.0
 ERA_KINDS = ("cereal", "cereal", "cereal", "root", "meadow", "pasture", "bare")
 KEEP_LANDMARKS = ("plattform",)  # stays visible in 1952
-ROAD_LANDMARKS = ("fridolinsbruecke",)  # flagged by era_roads (its road is hidden), not by the site
+ROAD_LANDMARKS = ("fridolinsbruecke", *SUEDSPANGE_SIGNS)  # flagged by era_roads (their roads are hidden), not by the site
 HERE = Path(__file__).parent
 FOREST_WATER_GAP = 2.0  # m around forest and water
 

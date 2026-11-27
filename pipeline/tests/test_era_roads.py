@@ -8,10 +8,11 @@ import era_roads as R
 
 SWISS = box(0, -1000, 1000, 1000)  # x < 0 is German
 INDUSTRIAL = box(100, 100, 200, 200)
+IND_LONLAT = {"type": "Polygon", "coordinates": [[[7.99, 47.55], [7.991, 47.55], [7.991, 47.551], [7.99, 47.551], [7.99, 47.55]]]}
 
 
-def road(cls, pts, n="", bridge=False):
-    return {"id": 1, "n": n, "cls": cls, "w": 6.0, "mark": "none", "bridge": bridge, "layer": 0, "pts": [list(p) for p in pts]}
+def road(cls, pts, n="", bridge=False, id=1):
+    return {"id": id, "n": n, "cls": cls, "w": 6.0, "mark": "none", "bridge": bridge, "layer": 0, "pts": [list(p) for p in pts]}
 
 
 def house(x, z, modern=False, size=10.0):
@@ -410,3 +411,41 @@ def test_traced_house_keeps_residential_street():
     world["era"]["houses"] = [house(150, 45)]
     R.apply(world, SWISS_LV95(), ind)
     assert "modern" not in world["roads"][1]
+
+
+def test_late_ids_are_modern_on_either_side_whatever_their_class():
+    roads = [road("tertiary", [(100, 0), (300, 0)], n="Südspange", id=-42001),
+             road("cycleway", [(100, 10), (300, 10)], id=-42002),
+             road("unclassified", [(-300, 0), (-100, 0)], n="Südspange", id=-42003),
+             road("unclassified", [(100, 90), (300, 90)], n="Geuerenstrasse", id=-42004)]
+    assert classify(roads) == {0: "late", 1: "late", 2: "late"}
+
+
+def test_late_beats_motorway_and_industrial():
+    roads = [road("motorway", [(100, 0), (300, 0)], id=-42001), road("service", [(120, 150), (180, 150)], id=-42003)]
+    assert classify(roads, industrial=INDUSTRIAL) == {0: "late", 1: "late"}
+
+
+def _sign_world(late=True):
+    lm = {name: {"x": 500.0, "z": 0.0, "kind": "baustelle", "h": None, "rot": 0.0} for name in R.SUEDSPANGE_SIGNS}
+    lm["muenster"] = {"x": 600.0, "z": 0.0, "kind": "church", "h": None, "rot": 0.0}
+    return {"origin": {"lat": 47.5506, "lon": 7.9671},
+            "roads": [road("tertiary", [(100, 0), (300, 0)], id=-42001 if late else 7)],
+            "buildings": [], "anchors": {"landmarks": lm}}
+
+
+def test_apply_flags_the_suedspange_signs_and_counts_late():
+    w = _sign_world()
+    counts = R.apply(w, SWISS_LV95(), IND_LONLAT)
+    assert counts["late"] == 1
+    lm = w["anchors"]["landmarks"]
+    assert all(lm[n]["modern"] is True and list(lm[n])[-1] == "modern" for n in R.SUEDSPANGE_SIGNS)
+    assert "modern" not in lm["muenster"]
+
+
+def test_apply_clears_a_stale_sign_flag_when_no_late_road_is_hidden():
+    w = _sign_world(late=False)
+    for n in R.SUEDSPANGE_SIGNS:
+        w["anchors"]["landmarks"][n]["modern"] = True
+    R.apply(w, SWISS_LV95(), IND_LONLAT)
+    assert all("modern" not in w["anchors"]["landmarks"][n] for n in R.SUEDSPANGE_SIGNS)
