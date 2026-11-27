@@ -6082,6 +6082,8 @@ window.__mm.sfxCrashes = () => SFX.crashes();
 window.__mm.sfxKnocks = () => SFX.knocks();   // #415
 window.__mm.navi = () => { const d = NAVIS.last && naviDescribe(NAVIS.last); return { on: NAVIS.on, dest: NAVIS.dest && { n: NAVIS.dest.n, x: NAVIS.dest.x, z: NAVIS.dest.z }, len: NAVIS.route ? NAVIS.route.len : 0, s: NAVIS.last ? NAVIS.last.s : null, left: NAVIS.last ? NAVIS.last.left : null, off: NAVIS.last ? NAVIS.last.off : null, type: d ? d.type : null, kind: d ? d.kind : null, dist: d ? d.dist : null, text: NAVIS.text, replans: NAVIS.replans }; };
 window.__mm.naviStart = (d) => { const e = typeof d === 'string' ? destEntries().find(x => x.n === d) : d; return e ? startNavi(e) : false; };
+window.__mm.dest = (name) => destEntries().find((e) => e.n === name) ?? null;   // #1248: a jump/Navi destination by name (patrol start and goal)
+window.__mm.naviRoute = () => (NAVIS.route ? NAVIS.route.pts.map(([x, z]) => [x, z]) : null);   // #1248: the planned polyline the patrol walks
 window.__mm.naviSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepNavi(1 / 60); return window.__mm.navi(); };
 // drive the route headless: put the car stepM metres further along it each frame and let the Navi follow, until it arrives.
 // The Navi only reads the car, so no physics is needed; `seen` collects every 'type:kind' the panel would have shown.
