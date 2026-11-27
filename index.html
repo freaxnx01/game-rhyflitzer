@@ -1168,7 +1168,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor,
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, distantMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, LIVE, FM, isFm, STATIONS, stationName, stationOrder, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
+import { TRACKS, MENU_TRACK, LIVE, FM, isFm, STATIONS, stationName, stationOrder, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepPos, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -5066,7 +5066,7 @@ const RADIO = (() => {
   function orderFrom(first) { S.order = stationOrder(S.fm, S.shuffle, first); S.pos = S.order.indexOf(first); S.track = first; }
   function freshStart() { const t = FM[S.fm].tracks; orderFrom(S.shuffle ? t[Math.floor(Math.random() * t.length)] : t[0]); }
   freshStart();
-  function step(dir) { S.pos = (dir > 0 ? nextTrack : prevTrack)(S.pos); S.track = S.order[S.pos]; }
+  function step(dir) { S.pos = stepPos(S.pos, dir, S.order.length); S.track = S.order[S.pos]; }
   // the menu song plays on into the run (S.carry) and then hands over to the radio; it was just heard, so FM does not open with it again
   const MENU_INDEX = TRACKS.indexOf(MENU_TRACK);
   function endCarry() { S.carry = false; if (S.track === MENU_INDEX && S.order.length > 1) step(1); }

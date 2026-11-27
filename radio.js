@@ -66,6 +66,7 @@ export function radioKeyAction(e) {
 
 export const nextTrack = (i, n = TRACKS.length) => (i + 1) % n;
 export const prevTrack = (i, n = TRACKS.length) => (i - 1 + n) % n;
+export const stepPos = (pos, dir, n) => (dir > 0 ? nextTrack : prevTrack)(pos, n);
 // Rhyflitzer FM's play order: the list as it is, or (shuffle, the default) a random permutation that starts at first.
 // nextTrack / prevTrack walk positions in this order, so 7 goes back to the track that really played before
 export function playlistOrder(shuffle, n, first, rand = Math.random) {
