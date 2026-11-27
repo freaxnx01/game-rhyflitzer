@@ -74,3 +74,18 @@ def test_patrol_writes_frames_manifest_video_sheets_and_review(tmp_path):
     assert (tmp_path / "patrol.mp4").stat().st_size > 0
     assert (tmp_path / "sheet-01.jpg").exists()
     assert "sheet-01.jpg" in (tmp_path / "review.md").read_text(encoding="utf-8")
+
+
+COMMAND = Path(__file__).parents[1] / ".claude" / "commands" / "patrol.md"
+
+
+def test_patrol_command_runs_the_script_and_never_files():
+    text = COMMAND.read_text(encoding="utf-8")
+    assert "scripts/patrol.py" in text and "mktemp -d" in text
+    assert 'model: "sonnet"' in text and 'model: "fable"' in text and "never Opus" in text
+    assert "/processing-test-feedback" in text and "files nothing" in text
+
+
+def test_no_workflow_runs_the_patrol():
+    workflows = Path(__file__).parents[1] / ".github" / "workflows"
+    assert not any("patrol" in p.read_text(encoding="utf-8") for p in workflows.glob("*.yml"))
