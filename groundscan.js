@@ -52,3 +52,27 @@ function heightOnTriangle({ pos, idx }, t, x, z) {
   if (l1 < EDGE || l2 < EDGE || l3 < EDGE) return null;
   return l1 * pos[3 * a + 1] + l2 * pos[3 * b + 1] + l3 * pos[3 * c + 1];
 }
+
+// #1248: probe points along every non-bridge road, by arc length across vertices
+export function roadProbes(roads, step = SCAN.step, inset = SCAN.inset) {
+  const out = [];
+  for (const r of roads) if (!r.bridge) probesAlong(r, step, inset, out);
+  return out;
+}
+
+function probesAlong(r, step, inset, out) {
+  const off = Math.max(0, r.w / 2 - inset);
+  let next = 0, run = 0;
+  for (let i = 0; i < r.pts.length - 1; i++) {
+    const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0);
+    if (!len) continue;
+    const nx = -(z1 - z0) / len, nz = (x1 - x0) / len;
+    for (; next <= run + len + 1e-9; next += step) {
+      const u = (next - run) / len, x = x0 + (x1 - x0) * u, z = z0 + (z1 - z0) * u;
+      out.push(probe(r, x, z, 'centre'), probe(r, x - nx * off, z - nz * off, 'left'), probe(r, x + nx * off, z + nz * off, 'right'));
+    }
+    run += len;
+  }
+}
+
+const probe = (r, x, z, side) => ({ x, z, n: r.n, cls: r.cls, side });
