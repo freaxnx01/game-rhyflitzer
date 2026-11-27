@@ -42,7 +42,8 @@ def test_opens_from_start_and_esc_returns(server):
     assert visible and title == "Settings"
     assert held == [], held                                          # game keys never reach the game behind the dialog
     assert after == {"settings": {"open": False, "from": "start", "sound": {"on": True, "vol": 10},
-                                   "music": {"on": True, "menuOn": True, "vol": 6, "shuffle": True}}, "overlay": True, "focus": "settingsbtn"}, after
+                                   "music": {"on": True, "menuOn": True, "vol": 6, "shuffle": True},
+                                   "course": "turn"}, "overlay": True, "focus": "settingsbtn"}, after   # #1117: the race course, in turn on a fresh profile
     assert errors == []
 
 
