@@ -332,3 +332,16 @@ test('the delivery mode names the order, the tip and the refusals in both langua
     }
   }
 });
+
+test('the race course strings exist in both languages (#1117)', () => {
+  for (const lang of ['en', 'de']) {
+    for (const k of ['setRace', 'setCourse', 'setCourseTurn', 'setCourseRandom', 'setCourseCap', 'courseClassic', 'courseEiken', 'courseTwoBridges', 'courseMumpf', 'courseBergsee', 'courseRandom', 'introCourseRandom', 'courseNextRandom', 'courseNoBest']) assert.equal(typeof STRINGS[lang][k], 'string', `${lang} ${k}`);
+    assert.match(translate(lang, 'introCourse', 'Eiken', 'Gallusturm'), /Eiken.*Gallusturm/s);
+    assert.match(translate(lang, 'courseToast', 'Eiken', 'Gallusturm'), /Eiken.*Gallusturm/s);
+    assert.match(translate(lang, 'finishedCourse', 'Gallusturm'), /Gallusturm/);
+    assert.match(translate(lang, 'courseNext', 'Mumpf'), /Mumpf/);
+  }
+  assert.equal(translate('de', 'setCourseTurn'), 'Im Wechsel');
+  assert.equal(translate('de', 'setCourseRandom'), 'Zufällig');
+  assert.equal(translate('de', 'setCourse'), 'Strecke');
+});
