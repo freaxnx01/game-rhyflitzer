@@ -51,11 +51,10 @@ Under `## [Unreleased]` / `### Fixed` (create the heading above `### Changed` if
 timestamp from `TZ=Europe/Zurich date '+%F %H:%M'` at the time of the change:
 
 ```markdown
-- `<timestamp>` **Rhyflitzer FM**: **Rock** und **Cruise** werden nach dem letzten Lied nicht mehr stumm, sondern fangen wieder vorne an; mit <kbd>Z</kbd> zurück springt Dein Radio vom ersten Lied zum letzten.
+- `<timestamp>` **Rhyflitzer FM**: **Rock** und **Cruise** werden nach dem letzten Lied nicht mehr stumm, sondern fangen wieder vorne an; mit <kbd>7</kbd> springst Du vom ersten Lied zum letzten zurück.
 ```
 
-Check the real previous-track key in `radio.js` `KEY_ACTIONS` and use that key in the `<kbd>`; if it is not a single
-key, drop the clause after the semicolon. Commit tasks 2 and 3 together.
+(<kbd>7</kbd> is the previous-track key, `radio.js` `KEY_ACTIONS`.) Commit tasks 2 and 3 together.
 
 ## Done when
 
