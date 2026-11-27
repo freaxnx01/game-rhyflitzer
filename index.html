@@ -1723,6 +1723,16 @@ function terrainH(x, z) {
   }
   return meshH(x, z);
 }
+// #1247: the ground before the #1152 fit -- a 1 m patch (CUT_CELLS) or the mesh: the m buildFit fits from. A yield ramp's
+// road blends to this, not to terrainH: blended with the fitted ground G = m + w·Δ it lies w·(G − y) under it on a crest
+function unfittedH(x, z) {
+  const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
+  if (CUT_CELLS.size && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
+    const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), p = CUT_CELLS.get(i + ',' + j);
+    if (p) return patchH(p, CUT_N, fx - i, fz - j);
+  }
+  return meshH(x, z);
+}
 function baseH(x, z) {
   if (REAL) return L ? realH(x, z) : Math.max(0, realH(x, z)) * sm((riverDist(x, z) + 5) / 30);
   if (L && !REGION.handFallback) return 0;   // #127: the made-up hills are the Rhine valley; elsewhere flat until the .mmh loads
@@ -2901,7 +2911,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // length where it has one: a nearest-point search snaps a hairpin ramp's edge points to the branch coming back beside it
   // (8.5 m out on the A3 slip road w25015881), where the strip's station is unambiguous.
   // #1231: a paired carriageway's height is the shared crossfall (dualProfileH), off its axis by the point's distance to it
-  function roadHeightFn(r) { const pts = dropRepeats(r.pts), mates = DUAL_PAIRS.get(r); return (p, t) => { const n = t === undefined ? nearestOnPolyline(pts, p[0], p[1]) : null, s = n ? n.t : t, w = profileWeight(p[0], p[1]); let y = roadProfileH(r, s); if (mates) { const c = n ? null : pointAtLength(pts, s); y = dualProfileH(r, mates, p[0], p[1], s, n ? n.d : Math.hypot(p[0] - c[0], p[1] - c[1]), DUAL_ENDS); } return w >= 1 ? y : w * y + (1 - w) * terrainH(p[0], p[1]); }; }
+  // #1247: the yield blend goes to the ground before the fit (unfittedH): road − fitted ground = w·sag ≥ 0
+  function roadHeightFn(r) { const pts = dropRepeats(r.pts), mates = DUAL_PAIRS.get(r); return (p, t) => { const n = t === undefined ? nearestOnPolyline(pts, p[0], p[1]) : null, s = n ? n.t : t, w = profileWeight(p[0], p[1]); let y = roadProfileH(r, s); if (mates) { const c = n ? null : pointAtLength(pts, s); y = dualProfileH(r, mates, p[0], p[1], s, n ? n.d : Math.hypot(p[0] - c[0], p[1] - c[1]), DUAL_ENDS); } return w >= 1 ? y : w * y + (1 - w) * unfittedH(p[0], p[1]); }; }
   const dualClipFn = (r) => { const mates = DUAL_PAIRS.get(r); return mates ? (p, nx, nz) => dualClip(r, mates, p[0], p[1], nx, nz) : null; };
   const onProfile = (r) => !!r.zp && !!L && !NO_PROFILE;
   for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; let sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true, onProfile(r) ? roadHeightFn(r) : null, onProfile(r) ? dualClipFn(r) : null).userData; if (sf.drawn) DUAL_DRAWN.set(r.id, sf.drawn); sf = sf.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
@@ -6276,10 +6287,11 @@ window.__mm.grassOverRoad = (pct = 10, only = null) => {
   };
   const segs = []; for (const r of ROADS) if (!r.bridge && (only === null || r.n === only)) for (let i = 0; i < r.pts.length - 1; i++) if (sampled(r.pts[i][0], r.pts[i][1], pct)) segs.push([r, i]);
   for (const [r, i] of segs) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) probe(x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3)); }
-  const GRASS_SPOTS = L && only === null ? [   // #290: the measured spots (issue + Geuerenstrasse feedback 2026-10-29/30)
+  const GRASS_SPOTS = L && only === null ? [   // #290: the measured spots (issue + Geuerenstrasse feedback 2026-10-29/30); #1247: yield ramps
     [-2978.85, 610.72], [-2231.9, 705.4], [-4684.35, 3153.85], [1075.85, 1181.1], [1599.56, 962.82], [2632.99, -1038.57], [-1500.65, 5151.7],
     [-1219.25, 536.25], [-2944.65, 1608.5], [-456.7, 3812.45], [-1483.85, 450.2], [-3385.5, 686.3], [4207.95, -495.3], [1559.75, 1974],
-    [271, 417.74], [274, 417.89], [277, 418.05], [280, 418.2], [283, 418.35], [286, 418.5]] : [], spots = [];
+    [271, 417.74], [274, 417.89], [277, 418.05], [280, 418.2], [283, 418.35], [286, 418.5],
+    [1558.5, 715.5], [1558.5, 709.5], [1549.4, 469.2], [1514.3, 375.7], [1556.7, 715.4], [1546.9, 467.8]] : [], spots = [];
   for (const [x, z] of GRASS_SPOTS) { const p = probe(x, z); if (p) spots.push({ at: [x, z], d: p.d, marksBelow: p.marksBelow }); }
   return { worst, bad, done, marksSeen, marksBelow, spots };
 };

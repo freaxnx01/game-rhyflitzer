@@ -95,6 +95,40 @@ def test_noprofile_is_the_old_drape(server):
     assert errors == [] and fit["cells"] == 0 and fit["noProfile"]     # AC 11 (a world without zp takes this path)
 
 
+# #1247: #1152 AC 9 across the carriageway, but only where the profile yields (0 < profileW < 1): the band beside a 1 m
+# patch that CHECKS leaves out. Same exclusions as CHECKS (the no-data cliff, off the terrain grid); no raycasts.
+RAMP = """async () => {
+  const W = await import('./world.js'), mm = window.__mm, out = { covered: 0, sampled: 0, worst: 0, at: null };
+  for (const r of mm.profiled()) {
+    const len = W.polylineLength(r.pts), hw = r.w / 2;
+    for (let t = 0; t <= len; t += 4) {
+      const k = Math.round((r.zpFrom + t) / 4), near = r.zp.slice(Math.max(0, k - 1), k + 2);
+      if (near.some((v, i, a) => i && Math.abs(v - a[i - 1]) > 1)) continue;
+      const [x, z] = W.pointAtLength(r.pts, t), a = W.pointAtLength(r.pts, Math.min(len, t + 0.5)), dx = a[0] - x, dz = a[1] - z, l = Math.hypot(dx, dz) || 1;
+      for (let s = -hw + 0.3; s <= hw - 0.3; s += 1) {
+        const px = x - dz / l * s, pz = z + dx / l * s, w = mm.profileW(px, pz);
+        if (!(w > 0 && w < 1)) continue;
+        const rs = mm.roadSurf(px, pz), fx = (px - mm.gridX0) / 16, fz = (pz - mm.gridZ0) / 16;
+        if (rs === -Infinity || fx < 0 || fz < 0 || fx > mm.gridNx || fz > mm.gridNz) continue;
+        out.sampled++; const d = mm.terrainAt(px, pz) - rs;
+        if (d > 1e-3) { out.covered++; if (d > out.worst) { out.worst = d; out.at = [px, pz]; } }
+      }
+    }
+  }
+  return out;
+}"""
+
+
+def test_road_stays_over_the_ground_in_yield_ramps(server):
+    with sync_playwright() as p:
+        b, page, errors, _ = load(p, server)
+        r = page.evaluate(RAMP); b.close()
+    assert errors == [], errors
+    print("\n#1247 ramp", r)
+    assert r["sampled"] > 300, r            # 349 profile stations lie in a ramp (probe 2026-11-27), several samples each
+    assert r["covered"] == 0, r
+
+
 A3 = """() => {   // the midpoint of the longest motorway axis: the A3
   const W = window.__mm.profiled().filter((r) => r.cls === 'motorway');
   let best = null;
