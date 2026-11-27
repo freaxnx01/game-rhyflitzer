@@ -162,7 +162,7 @@ No DOM, no three.js (like `route.js`, `settings.js`), so `node --test` imports i
   Maintainer: "Automatisch, Name anzeigen".
 - **A5** [confirmed] The spec proposes the five courses, today's course stays course 1, the maintainer confirms.
   Maintainer: "Ich schlage vor, Du bestätigst".
-- **A6** [med] The five courses in the table above (names, checkpoints, finishes). Rejected: courses through Murg
+- **A6** [confirmed] (user 2026-11-27: «Ja, so übernehmen») The five courses in the table above (names, checkpoints, finishes). Rejected: courses through Murg
   or Rothaus on the German side east of Bad Säckingen (25 km: the only Rhine crossings are at Bad Säckingen), and
   courses with `modern` landmarks (they do not stand in 1952). Evidence: data probe 2026-11-27, lengths 12.1-13.5 km
   vs 13.3 km for course 1.
@@ -172,12 +172,12 @@ No DOM, no three.js (like `route.js`, `settings.js`), so `node --test` imports i
 - **A8** [high] "Race" means both checkpoint modes, Zeitfahren (`trial`) and Blitz: both read the same `CPS` /
   `FINISH` (`hasCheckpoints`, `startscreen.js:34`). Rejected: Blitz staying on course 1, which would need two sets
   of checkpoint objects.
-- **A9** [med] A new race is any `startRace` that is not the pause menu's Restart: the result screen's "Again"
+- **A9** [confirmed] (user 2026-11-27: «Nochmal = nächste Strecke») A new race is any `startRace` that is not the pause menu's Restart: the result screen's "Again"
   button takes the next course, Restart keeps the current one. The "Again" label stays. Rejected: "Again" repeating
   the same course, which would let a player who only presses "Again" never see another course.
 - **A10** [high] Best times per course; course 1 keeps today's keys (`mm.best2`, `mm.blitzBest`), so no record
   is lost. Rejected: one best time for all courses (meaningless across different lengths).
-- **A11** [med] A random course has no best time and no "new record". Rejected: a best time keyed by seed (each
+- **A11** [confirmed] (user 2026-11-27: «Keine Bestzeit») A random course has no best time and no "new record". Rejected: a best time keyed by seed (each
   seed is raced once). Evidence: `finish()` `index.html:6646` writes one key per mode.
 - **A12** [high] The rotation index is stored per region (`mm.courseIdx.<id>`) and survives a reload; a fresh
   profile starts at course 1. Rejected: in-memory only (a reload would always restart at course 1).
