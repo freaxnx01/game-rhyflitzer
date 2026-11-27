@@ -110,6 +110,21 @@ test('randomCourse_impossible_null', () => {
   assert.equal(randomCourse(POOL, START, seededRng(1), () => Infinity, 6000), null);          // no route
 });
 
+// a line of 13 points 200 m apart: closer than minGap to its neighbours, so the greedy pick depends on the
+// shuffled order -- an unlucky order finds only five points where another order finds six
+const LINE = [];
+for (let i = 0; i < 13; i++) LINE.push({ n: `L${i}`, x: i * 200, z: 0 });
+
+test('randomCourse_clusteredPool_reshufflesAfterAFailedDraw', () => {
+  const ref = 2400;
+  for (let seed = 1; seed <= 20; seed++) {
+    const c = randomCourse(LINE, START, seededRng(seed), straight, ref);
+    assert.ok(c, `seed ${seed}`);
+    const all = [...c.cps, c.finish];
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) assert.ok(straight(all[i], all[j]) >= RANDOM.minGap, `seed ${seed} gap`);
+  }
+});
+
 test('randomCourse_doesNotReorderThePool', () => {
   const copy = POOL.map((q) => ({ ...q }));
   randomCourse(POOL, START, seededRng(3), straight, 6000);

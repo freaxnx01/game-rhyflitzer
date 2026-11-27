@@ -78,7 +78,7 @@ function sixApart(points, start) {
 export function randomCourse(pool, start, rng, legLen, ref) {
   for (let t = 0; t < RANDOM.tries; t++) {
     const six = sixApart(shuffled(pool, rng), start);
-    if (!six) return null;
+    if (!six) continue;   // the greedy pick follows the shuffled order: another order may well find six
     const cps = six.slice(0, 5).map(({ n, x, z }) => ({ n, x, z })), finish = (({ n, x, z }) => ({ n, x, z }))(six[5]);
     const len = nearestFirstLength(start, cps, finish, legLen);
     if (len >= RANDOM.lo * ref && len <= RANDOM.hi * ref) return { id: 'random', key: 'courseRandom', cps, finish };
