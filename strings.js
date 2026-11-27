@@ -301,7 +301,7 @@ const en = {
   monoOn: 'Black and white · Ctrl+B for colour',   // #530
   monoOff: 'Colour',   // #530
   keyMono: 'black and white like an old photo, and back',   // #530
-  eraOn: '1952 · Ctrl+Y for today',   // #530
+  eraOn: '1952 · Ctrl+Y for today · Ctrl+B black and white',   // #530
   eraOff: 'Today',
   eraNone: 'This world has no 1952 view',
   eraNoDelivery: 'Not during a delivery',
@@ -1196,7 +1196,7 @@ const de = {
   monoOn: 'Schwarzweiss · Ctrl+B für Farbe',   // #530
   monoOff: 'Farbe',   // #530
   keyMono: 'Schwarzweiss wie ein altes Foto, und zurück',   // #530
-  eraOn: '1952 · Ctrl+Y für heute',   // #530
+  eraOn: '1952 · Ctrl+Y für heute · Ctrl+B Schwarzweiss',   // #530
   eraOff: 'Heute',
   eraNone: 'In dieser Welt gibt es kein 1952',
   eraNoDelivery: 'Nicht während einer Lieferung',

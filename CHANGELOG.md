@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-27 10:47` Die Meldung beim Wechsel ins Jahr **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) verrät jetzt auch den **Schwarzweiss**-Look: <kbd>Ctrl</kbd>+<kbd>B</kbd>.
 - `2026-11-26 15:34` Im **1952**-Modus (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) ist die **Südspange** samt Radweg und Baustellenschildern verschwunden; nur ihr **Einschnitt** bleibt.
 - `2026-11-25 22:09` Gebäude mit **Flachdach** am **Hang** stecken nicht mehr halb im Boden: Die **Schule Sisseln** steht jetzt ganz da, und wo ein Gebäude doch unter dem Boden liegt, gibt es keine **unsichtbare Wand** mehr.
 - `2026-11-25 09:46` **Bahnbrücken** und **Unterführungen** haben jetzt ihre echte Höhe aus **swissTLM3D**: Die Brücken liegen höher, die Strasse darunter taucht nicht mehr künstlich ab, zum Beispiel in **Stein** und am **Königsweg**.
