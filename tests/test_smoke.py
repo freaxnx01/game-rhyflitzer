@@ -279,6 +279,10 @@ def test_smile_kreisel_fits_the_mapped_roundabout(server):
     assert inner - 1.0 < math.hypot(hit["x"] - cx, hit["z"] - cz) < inner + 3, hit   # stopped at the island rim, not inside it
 
 
+# #1247: grass over the Laufenburgerstrasse (Sisseln -> Eiken) in a yield ramp -- the issue's four spots and the probe's two worst
+SPOTS_1247 = [(1558.5, 715.5), (1558.5, 709.5), (1549.4, 469.2), (1514.3, 375.7), (1556.7, 715.4), (1546.9, 467.8)]
+
+
 @pytest.mark.parametrize("mode", ["hand", "osm"])
 def test_grass_and_fields_stay_below_the_road(server, mode):
     """Playtest 2026-10-01: grass and fields covered the road. Raycast road points (centre and both edges): the rendered
@@ -304,6 +308,8 @@ def test_grass_and_fields_stay_below_the_road(server, mode):
         assert res["marksSeen"] > 5, res
         assert len(res["spots"]) >= 15, res                              # #290: the measured spots are on drawn road and grass
         assert all(s["d"] < 0.01 and s["marksBelow"] == 0 for s in res["spots"]), res["spots"]
+        probed = {tuple(s["at"]) for s in res["spots"]}
+        assert all(s in probed for s in SPOTS_1247), (SPOTS_1247, res["spots"])   # #1247: on drawn road and grass, so checked
 
 
 @pytest.mark.parametrize("mode", ["hand", "osm"])
